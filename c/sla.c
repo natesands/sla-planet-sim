@@ -1,3 +1,9 @@
+/*--------------------------------------------------------------------------------
+sla.c
+Planetary formation simulation based on the research and Matlab source code contained in 
+SIMULATING THE BIRTH OF PLANETS: A SPECTRAL SEMI-LAGRANGIAN HYDRODYNAMIC APPROACH,
+a Master's thesis by Wendy Crumrine.
+--------------------------------------------------------------------------------*/
 #include "sla.h"
 #include <stdio.h>
 //#include <stdlib.h> 
@@ -5,14 +11,15 @@
 
 int main() {
   // Initialize spatial and wave number grids
+
+  
+  // X,Y = physical coordinate mesh
   X = (double **) malloc(sizeof(double *) * NX);
   for (int i=0; i<NX; i++)
     X[i] = (double *) malloc(sizeof(double) * NY);
-
   Y = (double **) malloc(sizeof(double *) * NX);
   for (int i=0; i<NX; i++)
     Y[i] = (double *) malloc(sizeof(double) * NY);
-
   x = (double *) malloc(sizeof(double)*NX);
   y = (double *) malloc(sizeof(double)*NY);
   for (int i=0; i<NX; i++) 
@@ -22,6 +29,7 @@ int main() {
 
   grid2d(X, Y, NX, NY, x, y);
 
+  // KX, KY = wave number mesh
   KX = (double **) malloc(sizeof(double *) * NX);
   for (int i=0; i<NX; i++)
     KX[i] = (double *) malloc(sizeof(double) * NY);
@@ -42,6 +50,7 @@ int main() {
   grid2d(KX, KY, NX, NY, kx, ky);
 
 
+  // K2 = kx^2 + ky^2 for (kx,ky) in [KX,KY]
   K2 = (double **) malloc(sizeof(double *) * NX);
   for (int i=0; i<NX; i++)
     K2[i] = (double *) malloc(sizeof(double) * NY);
@@ -85,18 +94,18 @@ int main() {
     printf("\n");
   }
 
-  rho0 = 1.0;
-  omega = 1.0;
-  shear = -1.5*0;
-  dPdR = -0.10;
-  tau = 0.005;
-  dt = 1.0/8.0;
+//  rho0 = 1.0;
+//  omega = 1.0;
+//  shear = -1.5*0;
+//  dPdR = -0.10;
+//  tau = 0.005;
+//  dt = 1.0/8.0;
 //  nt = 4096;
  // bufx = NX/16;
  // bufy = NY/16;
-  num_sl_disp_iter = 4;
-  num_pressure_iter = 4;
-  hypviscpow = 8;
+//  num_sl_disp_iter = 4;
+//  num_pressure_iter = 4;
+//  hypviscpow = 8;
   
 //  hypvisc = (double **) malloc(sizeof(double *) * NX);
 //  for (int i=0; i<NX; i++)
@@ -115,22 +124,33 @@ int main() {
   }
 
   
-  printf("qx:\n");
-  for (int i=0; i<NX; i++) {
-    for (int j=0; j<NY; j++) 
-      printf("%f\t", qx[i][j]);
-    printf("\n");
-  }
-  printf("BUFY: %d, BUFX: %d\n", BUFY, BUFX);
-  
-  X = add_buffer(X, NX, NY, 1,1);
-
-  printf("Xb:\n");
-  for (int i=0; i<NX+2; i++) {
-    for (int j=0; j<NY+2; j++) 
-      printf("%f\t", X[i][j]);
-    printf("\n");
-  }
+//  printf("qx:\n");
+//  for (int i=0; i<NX; i++) {
+//    for (int j=0; j<NY; j++) 
+//      printf("%f\t", qx[i][j]);
+//    printf("\n");
+//  }
+//  printf("BUFY: %d, BUFX: %d\n", BUFY, BUFX);
+//
+//  double **XX = (double **) malloc(sizeof(double *) * 3);
+//  for (int i=0; i<3; i++) 
+//    XX[i] = (double *) malloc(sizeof(double)*3);
+//  for (int i=0; i<9; i++) 
+//    //printf("%d, %d\n", i/3, i%3);
+//   XX[i/3][i%3] = i+1;
+//
+//  int tmpbufx = 2;
+//  int tmpbufy = 2; 
+//  XX = add_buffer(XX, 3, 3, tmpbufx,tmpbufy);
+//
+//  printf("XX:\n");
+//  for (int i=0; i<3+2*tmpbufx; i++) {
+//    for (int j=0; j<3+2*tmpbufy; j++) 
+//      printf("%f\t", XX[i][j]);
+//    printf("\n");
+//  }
+//
+  x_buf = add_buffer(X, NX, NY, BUFX, BUFY);
  return 0;
 
 
