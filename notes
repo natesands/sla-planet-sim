@@ -1,0 +1,13 @@
+* NOTES *
+---------
+
+Stuff to ask Wendy about:
+-- Assumption of ideal gas properties
+-- what is the nature of the error introduced when derivatives are imported back from Fourier space?
+-- Elimination of diffuse dust flow
+
+General questions:
+-- Can we make any assumptions about initial conditions other than simple noise?
+-- Is there any room in the model to introduce gravitational effects (other than from the star) when dust reaches critical density?
+-- How do we deal with periodic boundary conditions?  (This is a basic question addressed in molecular dynamics simulations and there must be a lot of literature on it.)
+

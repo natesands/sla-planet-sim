@@ -150,7 +150,32 @@ int main() {
 //    printf("\n");
 //  }
 //
-  x_buf = add_buffer(X, NX, NY, BUFX, BUFY);
+  x_buf = add_buffer(X, NX, NY, BUFX, BUFY); // x_buf is (NX+2*BUFX) x (NY+2*BUFY)
+  for (int i=0; i<BUFX; i++)
+    for (int j=0; j<NY+2*BUFY; j++) {
+      x_buf[i][j] -= LX;
+      x_buf[NX+BUFX+i][j] += LX; 
+    }
+
+  printf("x_buf:\n");
+  for (int i=0; i < NX+2*BUFX;i++) {
+    for(int j=0; j<NY+2*BUFY;j++)
+      printf("%f\t",x_buf[i][j]);
+    printf("\n");
+  }
+  y_buf = add_buffer(Y, NX, NY, BUFX, BUFY); // y_buf is (NX+2*BUFX) x (NY+2*BUFY)
+  for (int j=0; j<BUFY; j++)
+    for (int i=0; i<NX+2*BUFX; i++) {
+      y_buf[i][j] -= LY;
+      y_buf[i][NY+BUFY+j] += LY;
+    }
+
+  printf("y_buf:\n");
+  for (int i=0; i < NX+2*BUFX;i++) {
+    for(int j=0; j<NY+2*BUFY;j++)
+      printf("%f\t",y_buf[i][j]);
+    printf("\n");
+  }
  return 0;
 
 
