@@ -5,6 +5,11 @@ SIMULATING THE BIRTH OF PLANETS: A SPECTRAL SEMI-LAGRANGIAN HYDRODYNAMIC APPROAC
 a Master's thesis by Wendy Crumrine.
 --------------------------------------------------------------------------------*/
 #include <stdlib.h>
+#include <complex.h>
+#include <fftw3.h>   // fast fourier transforms 
+#include <stdio.h>
+#include <math.h>
+#include <time.h>   // for random seed
 
 /* Constants----------------------------------------------------------------------
 NX, NY = number of grid points in the X,Y directions
@@ -64,7 +69,7 @@ double crlq[NX][NY];
 double rho_buf[NX+2*BUFX][NY+2*BUFY]; 
 double divq_buf[NX+2*BUFX][NY+2*BUFY];
 double crlq_buf[NX+2*BUFX][NY+2*BUFY];
-
+char buff[100];
 
 /* Parameters-------------------------------------------------------------------
 ------------------------------------------------------------------------------*/
@@ -83,8 +88,8 @@ int num_pressure_iter = 4;
 int hypviscpow = 8;
 
 /* Functions-------------------------------------------------------------------
-grid2d: initialize mesh grids -- equiv. to Matlab's ndgrid for d=2
-sq: square value
+grid2d:     initialize mesh grids -- equiv. to Matlab's ndgrid for d=2
+sq:         square value
 add_buffer: pads Nx x Ny array by bufx and bufy, and tiles values. e.g.
             
             A B C
@@ -101,6 +106,9 @@ add_buffer: pads Nx x Ny array by bufx and bufy, and tiles values. e.g.
 
          for bufx=1, bufy=2.  
          returns pointer to (Nx+2*bufx) x (Ny+2*bufy) array.
+cfs:  Returns c string for printing complex numbers. 
+cmean1d / cmean2d:  mean of 1D/2D array of complex doubles
+fft2d:  Performs fast fourier transform real->freq and freq->real
 ------------------------------------------------------------------------------*/
 
 void grid2d (double **X, double **Y, int Nx, int Ny, double *x, double *y) {
@@ -138,7 +146,78 @@ double** add_buffer(double **X, int Nx, int Ny, int bufx, int bufy) {
   return Xb;
 }
 
+/* complex format string for printing complex numbers*/
+char *cfs(fftw_complex c) {
+  int n;
+  n = snprintf(buff, 100, "%f + %fi",creal(c), cimag(c));
+  return buff;
+}
 
+double complex cmean1D(double complex *k, int size) {
+  double complex sum = 0;
+  for(int i=0; i<size; sum+=k[i++]);
+  return sum / size;
+}
 
+double complex cmean2d(double complex k[3][3], int nx,int ny) {
+  double complex sum = 0;
+  for (int i=0; i<nx; i++)
+    sum += cmean1D(k[i],ny);
+  return sum / nx;
+}
 
+double complex** fft2d(double complex **f, int nx, int ny, int dir) {
+  /* Performs fft2d in either direction depending on sign of dir.  
+     If dir < 0: real physical space --> complex frequency space.
+     If dir > 0: complex frequency space --> real physical space.
+     Takes a 2D array ptr f and returns a 2D array array ptr g. */
 
+  fftw_plan p;
+  int i, j;
+  double complex *gg, *ff;  // FFTW only works on single dimensional arrays in row-major order. 
+  double complex **g;    // This will be the 2D array pointer returned.
+
+  ff= (double complex*) fftw_malloc(sizeof(double complex)*nx*ny);
+  gg= (double complex*) fftw_malloc(sizeof(double complex)*nx*ny);
+  g = (double complex**) fftw_malloc(sizeof(double complex*)*nx);
+  for (i=0; i<nx; i++)
+    g[i] = (double complex*) fftw_malloc(sizeof(double complex)*ny);
+ 
+  // copy f to ff 
+  for (i=0; i<nx; i++)
+    for(j=0; j<ny; j++)
+      ff[i*nx+j] = f[i][j];
+
+  if (dir < 0) {
+    p = fftw_plan_dft_2d(nx, ny, ff, gg, 
+                       FFTW_FORWARD,
+                       FFTW_ESTIMATE);
+    fftw_execute(p);
+    for(i=0; i<nx; i++) {
+      for(j=0; j<ny; j++) {
+        if (i==nx/2 || j==ny/2)   // TODO: why are these values set to zero?
+          gg[nx*i+j] = 0.0;
+        else
+          gg[nx*i+j] = creal(gg[nx*i+j]);
+      } // end for j
+    } // end for i
+  } // end if
+  else {
+    for(i=0; i<nx; i++) {
+      for(j=0; j<ny; j++) {
+        if (i==nx/2 || j==ny/2)
+          ff[nx*i+j] = 0.0;
+      } // end for j
+    } // end for i
+    p = fftw_plan_dft_2d(nx, ny, ff, gg, 
+                       FFTW_BACKWARD,
+                       FFTW_ESTIMATE);
+    fftw_execute(p);
+  } // end else
+  // copy gg to g and return
+  for (i=0; i<nx; i++)
+    for(j=0; j<ny; j++)
+      g[i][j] = f[i][j];
+
+  return g;
+} // fft2d

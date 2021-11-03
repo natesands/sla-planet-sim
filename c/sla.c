@@ -176,6 +176,15 @@ int main() {
       printf("%f\t",y_buf[i][j]);
     printf("\n");
   }
+  /* initialize background shear */
+  //for (i=0; i<NX; i++)
+  //  for (j=0; j<NY; j++) 
+  //    vxb[i][j] = -shear*Y[i][j]*(0.5*(tanh(8.0*(Y[i][j]+0.4*LY))-tanh(8.0*(Y[i][j]-0.4*LY))));
+
+  /* initialize vorticity */
+  /* ALL entries in wzq[NX][NY][NT+1] are already initialized to 0 */
+
+  /* initialize dust density */
  return 0;
 
 
