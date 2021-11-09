@@ -1,3 +1,8 @@
+/*
+gcc noise.c -lfftw3 -lm 
+*/
+
+
 #include <complex.h>
 #include <fftw3.h>
 #include <stdio.h>
@@ -51,12 +56,13 @@ void fft2d(double complex *f, double complex *g, int nx, int ny, int dir) {
 } // fft2d
 */
 
+/* mean of array of complex values */
 double complex cmean1D(double complex *k, int size) {
   double complex sum = 0;
   for(int i=0; i<size; sum+=k[i++]);
   return sum / size;
 }
-
+/* mean of matrix of complex values */
 double complex cmean2d(double complex **k, int nx,int ny) {
   double complex sum = 0;
   for (int i=0; i<nx; i++)
@@ -64,60 +70,60 @@ double complex cmean2d(double complex **k, int nx,int ny) {
   return sum / nx;
 }
 
-double complex** fft2d(double complex **f, int nx, int ny, int dir) {
+double complex** fft2d(double complex **ff, int nx, int ny, int dir) {
   /* Performs fft2d in either direction depending on sign of dir.  
      If dir < 0: real physical space --> complex frequency space.
      If dir > 0: complex frequency space --> real physical space.
-     Takes a 2D array ptr f and returns a 2D array array ptr g. */
+     Takes a 2D array ptr ff and returns a 2D array array ptr gg. */
 
   fftw_plan p;
   int i, j;
-  double complex *gg, *ff;  // FFTW only works on single dimensional arrays in row-major order. 
-  double complex **g;    // This will be the 2D array pointer returned.
+  double complex *g, *f;  // FFTW only works on single dimensional arrays in row-major order. 
+  double complex **gg;    // This will be the 2D array pointer returned.
 
-  ff= (double complex*) fftw_malloc(sizeof(double complex)*nx*ny);
-  gg= (double complex*) fftw_malloc(sizeof(double complex)*nx*ny);
-  g = (double complex**) fftw_malloc(sizeof(double complex*)*nx);
+  f= (double complex*) fftw_malloc(sizeof(double complex)*nx*ny);
+  g= (double complex*) fftw_malloc(sizeof(double complex)*nx*ny);
+  gg = (double complex**) fftw_malloc(sizeof(double complex*)*nx);
   for (i=0; i<nx; i++)
-    g[i] = (double complex*) fftw_malloc(sizeof(double complex)*ny);
+    gg[i] = (double complex*) fftw_malloc(sizeof(double complex)*ny);
  
-  // copy f to ff 
+  // copy ff to f 
   for (i=0; i<nx; i++)
     for(j=0; j<ny; j++)
-      ff[i*nx+j] = f[i][j];
+      f[i*nx+j] = ff[i][j];
 
   if (dir < 0) {
-    p = fftw_plan_dft_2d(nx, ny, ff, gg, 
+    p = fftw_plan_dft_2d(nx, ny, f, g, 
                        FFTW_FORWARD,
                        FFTW_ESTIMATE);
     fftw_execute(p);
     for(i=0; i<nx; i++) {
       for(j=0; j<ny; j++) {
         if (i==nx/2 || j==ny/2)   // TODO: why are these values set to zero?
-          gg[nx*i+j] = 0.0;
+          g[nx*i+j] = 0.0;
         else
-          gg[nx*i+j] = creal(gg[nx*i+j]);
+          g[nx*i+j] = creal(g[nx*i+j]);
       } // end for j
     } // end for i
   } // end if
-  else {
+  else {  // dir > 0
     for(i=0; i<nx; i++) {
       for(j=0; j<ny; j++) {
         if (i==nx/2 || j==ny/2)
-          ff[nx*i+j] = 0.0;
+          f[nx*i+j] = 0.0;
       } // end for j
     } // end for i
-    p = fftw_plan_dft_2d(nx, ny, ff, gg, 
+    p = fftw_plan_dft_2d(nx, ny, f, g, 
                        FFTW_BACKWARD,
                        FFTW_ESTIMATE);
     fftw_execute(p);
   } // end else
-  // copy gg to g and return
+  // copy g to gg and return
   for (i=0; i<nx; i++)
     for(j=0; j<ny; j++)
-      g[i][j] = f[i][j];
+      gg[i][j] = g[nx*i+j];;
 
-  return g;
+  return gg;
 } // fft2d
 
 /* element-wise square of 2D array of complex doubles */ 
@@ -227,7 +233,20 @@ int main() {
   for (int i=0; i<n; i++)
     for (int j=0; j<n; j++)
       kk[i][j] = (double) rand() / (double) RAND_MAX;
-  
+
+  printf("kk: \n");
+  for (int i=0; i<n; i++)
+    for (int j=0; j<n; j++)
+      printf(j<n-1 ? "%f " : "%f\n", kk[i][j]);
+
+  double complex **kkfft = fft2d(kk, n, n, 2);
+
+
+  printf("kkfft: \n");
+  for (int i=0; i<n; i++)
+    for (int j=0; j<n; j++)
+      printf(j<n-1 ? "%f " : "%f\n", kkfft[i][j]);
+
   noise2d(kk, n, n, .001, .8, 1, 1);
    
   double complex a[] =  {32.0000 + 0.0000*I, -2.5000 - 0.8660*I,  -2.5000 + 0.8660*I,

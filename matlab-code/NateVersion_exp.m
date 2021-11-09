@@ -87,7 +87,6 @@ wzq(:,:,1) = 0*x;
 
 % initialize dust density
 rho(:,:,1) = 0.1*(1.0+0.01*noise2d(sqrt(k2),pi/dx/64,pi/dx/2,1,1));
-whatisrho=rho(:,:,1);
 
 % find velocity from vorticity via streamfunction
 psi = fft2d(wzq(:,:,1),-2)./k2;
