@@ -10,7 +10,7 @@ a Master's thesis by Wendy Crumrine.
 #include <stdio.h>
 #include <math.h>
 #include <time.h>   // for random seed
-
+#include "fft.h"
 /* Constants----------------------------------------------------------------------
 NX, NY = number of grid points in the X,Y directions
 LX, LY = dimensions of grid
@@ -18,13 +18,13 @@ NT = number of time steps
 BUFX, BUFY = size of buffer space for 2d arrays
 --------------------------------------------------------------------------------*/
 
-#define NX 6
-#define NY 6
+#define NX 16  // TODO: set to 16 for testing
+#define NY 16
 #define LX 4.0
 #define LY 4.0
 #define NT 4096
-#define BUFX (NX/3)
-#define BUFY (NY/3)
+#define BUFX (NX/16)
+#define BUFY (NY/16)
 
 /* Variables---------------------------------------------------------------------
 dx, dy = grid cell dimensions
@@ -54,7 +54,8 @@ double wz_buf[NX+2*BUFX][NY+2*BUFY];
 double **x_buf;
 //double y_buf[nx+2*bufx][ny+2*bufy]; 
 double **y_buf;
-double rho[NX][NY][NT+1];     
+//double rho[NT+1][NX][NY];     
+double ***rho;
 double vxw_x[NX][NY];
 double vxw_y[NX][NY];
 double nlxf[NX][NY]; 
@@ -111,6 +112,43 @@ cmean1d / cmean2d:  mean of 1D/2D array of complex doubles
 fft2d:  Performs fast fourier transform real->freq and freq->real
 ------------------------------------------------------------------------------*/
 
+/* returns root mean squared of 2D array of complex doubles */
+double complex crms2d(double complex **k, int dimx, int dimy) {
+  double complex rms = 0;
+  // sum square of each element
+  for (int i=0; i<dimx; i++)
+   for (int j=0; j<dimy; j++)
+    rms += k[i][j]*k[i][j]; 
+  // average
+  rms /= dimx*dimy;
+  return csqrt(rms);
+}
+
+/* returns root mean squared of 2D array of doubles */
+double complex rms2d(double **k, int dimx, int dimy) {
+  double rms = 0;
+  // sum square of each element
+  for (int i=0; i<dimx; i++)
+   for (int j=0; j<dimy; j++)
+    rms += k[i][j]*k[i][j]; 
+  // average
+  rms /= dimx*dimy;
+  return sqrt(rms);
+}
+
+/* take sqrt of elements of real matrix */
+double** msqrt(double **M, int dimx, int dimy) {
+  double **sqrtM = (double **) malloc(sizeof(double*)*dimx);
+  for (int i=0; i<dimx; i++)
+    sqrtM[i] = (double *) malloc(sizeof(double)*dimy);
+
+  for (int i=0; i<dimx; i++)
+    for (int j=0; j<dimy; j++)
+      sqrtM[i][j] = sqrt(M[i][j]);
+
+  return sqrtM;
+}
+
 void grid2d (double **X, double **Y, int Nx, int Ny, double *x, double *y) {
   // Initialize mesh grids X,Y each Nx by Ny
   for (int j=0; j < Ny; j++)
@@ -153,71 +191,79 @@ char *cfs(fftw_complex c) {
   return buff;
 }
 
+/* print real matrix*/
+void printrm(double **M, int dimx, int dimy)
+{
+  for (int i=0; i<dimx; i++) {
+    for (int j=0; j<dimy; j++)
+      printf(j != dimy-1 ? "%-6lf\t" : "%-6lf\n", M[i][j]);
+  }
+}
+          
+/* print complex matrix*/
+void printcm(double **M, int dimx, int dimy)
+{
+  for (int i=0; i<dimx; i++) {
+    for (int j=0; j<dimy; j++)
+      printf(j != dimy-1 ? "%-6s\t" : "%-6s\n", cfs(M[i][j]));
+  }
+}
+
+/* mean of array of complex values */
 double complex cmean1D(double complex *k, int size) {
   double complex sum = 0;
   for(int i=0; i<size; sum+=k[i++]);
   return sum / size;
 }
-
-double complex cmean2d(double complex k[3][3], int nx,int ny) {
+/* mean of matrix of complex values */
+double complex cmean2d(double complex **k, int nx,int ny) {
   double complex sum = 0;
   for (int i=0; i<nx; i++)
     sum += cmean1D(k[i],ny);
   return sum / nx;
 }
 
-double complex** fft2d(double complex **f, int nx, int ny, int dir) {
-  /* Performs fft2d in either direction depending on sign of dir.  
-     If dir < 0: real physical space --> complex frequency space.
-     If dir > 0: complex frequency space --> real physical space.
-     Takes a 2D array ptr f and returns a 2D array array ptr g. */
+/* element-wise square of 2D array of complex doubles */ 
+// TODO: modifies original array - don't use?
+void csq2d(double complex **k, int dimx, int dimy) {
+  for (int i=0; i<dimx; i++)
+    for (int j=0; j<dimy; j++)
+      k[i][j] *= k[i][j];
+}
 
-  fftw_plan p;
+/* Initialize grid of random noise in Fourier space */
+// TODO:  row major problem with fftw
+// TODO: what is the type of the array that is passed to this function?
+double ** noise2d(double **k, int nx, int ny, double kmin, double kmax, int kpow, double rms_noise) {
   int i, j;
-  double complex *gg, *ff;  // FFTW only works on single dimensional arrays in row-major order. 
-  double complex **g;    // This will be the 2D array pointer returned.
-
-  ff= (double complex*) fftw_malloc(sizeof(double complex)*nx*ny);
-  gg= (double complex*) fftw_malloc(sizeof(double complex)*nx*ny);
-  g = (double complex**) fftw_malloc(sizeof(double complex*)*nx);
+ // TODO:  What function does rms_noise have? 
+  double complex rms;
+  double *noise_return_flat = (double *) malloc(sizeof(double)*nx*ny);
+  double **noise_return = (double **) malloc(sizeof(double *)*nx);
   for (i=0; i<nx; i++)
-    g[i] = (double complex*) fftw_malloc(sizeof(double complex)*ny);
- 
-  // copy f to ff 
-  for (i=0; i<nx; i++)
-    for(j=0; j<ny; j++)
-      ff[i*nx+j] = f[i][j];
+    noise_return[i] = (double *) malloc(sizeof(double)*ny);
+  double complex *noise = (double complex *) fftw_malloc(sizeof(double complex) * nx*ny);
+  int ii, jj;
+  for (jj=1; jj<ny; jj++) {                        // TODO: why is indexing starting at 1? 
+    for (ii=1; ii<nx; ii++) { 
+      if ((k[ii][jj] >=kmin) && (k[ii][jj] <=kmax)) {
+        noise[ii*nx + jj] = cpow(M_E, 2*I*M_PI*((double) rand()/ (double) RAND_MAX)) /
+            pow(k[ii][jj],kpow);
+      }
+    }
+  }
+  
+  noise_return_flat = fft2d_c2r(noise, nx, ny);
+  for (i=0; i<nx; i++) {
+    for(j=0; j<ny; j++) {
+      noise_return[i][j] = noise_return_flat[nx*i + j];
+    }
+  }
 
-  if (dir < 0) {
-    p = fftw_plan_dft_2d(nx, ny, ff, gg, 
-                       FFTW_FORWARD,
-                       FFTW_ESTIMATE);
-    fftw_execute(p);
-    for(i=0; i<nx; i++) {
-      for(j=0; j<ny; j++) {
-        if (i==nx/2 || j==ny/2)   // TODO: why are these values set to zero?
-          gg[nx*i+j] = 0.0;
-        else
-          gg[nx*i+j] = creal(gg[nx*i+j]);
-      } // end for j
-    } // end for i
-  } // end if
-  else {
-    for(i=0; i<nx; i++) {
-      for(j=0; j<ny; j++) {
-        if (i==nx/2 || j==ny/2)
-          ff[nx*i+j] = 0.0;
-      } // end for j
-    } // end for i
-    p = fftw_plan_dft_2d(nx, ny, ff, gg, 
-                       FFTW_BACKWARD,
-                       FFTW_ESTIMATE);
-    fftw_execute(p);
-  } // end else
-  // copy gg to g and return
+  rms = rms2d(noise_return, nx, ny); // TODO: rms2d takes rms of squared entries
+  // noise = noise/rms * rms_noise
   for (i=0; i<nx; i++)
-    for(j=0; j<ny; j++)
-      g[i][j] = f[i][j];
-
-  return g;
-} // fft2d
+    for (j=0; j<ny; j++)
+      noise_return[i][j] = noise_return[i][j] / rms * rms_noise;
+  return noise_return;
+}

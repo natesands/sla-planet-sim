@@ -12,14 +12,15 @@
 #include "fft.h"
 
 /*******************************************************************************/
-char *cfs(fftw_complex c) {
+/*char *cfs(fftw_complex c) { */
 /********************************************************************************
  Returns c-string for  printing complex numbers.
 ********************************************************************************/
-  int n;
+/*  int n;
   n = snprintf(buff, 100, "%f + %fi",creal(c), cimag(c));
   return buff;
 }
+*/
 
 /*******************************************************************************/
 double complex* fft2d_r2c(double *f, int dimx, int dimy) {
@@ -65,18 +66,19 @@ pointer to new array.
 ********************************************************************************/
   fftw_plan p;
   int i, j;
-  double complex *ff, *fff;  /* holds temp copy of f */
+  double complex *ff, *fff;  /* f is copied to ff; ff is modified, then transformed to fff */
   double *g;    /* return array */
-
+/*
   printf("f:\n");
   for (i=0; i<dimx; i++) {
     for (j=0; j<dimy; j++) 
       printf(creal(f[dimx*i+j]) < 0.0  ? "%s " : " %s", cfs(f[dimx*i + j]));
     printf("\n");
   }
+  */
   ff = (double complex*) fftw_malloc(sizeof(double complex)*dimx*dimy);
   fff = (double complex*) fftw_malloc(sizeof(double complex)*dimx*dimy);
-  g = (double *) fftw_malloc(sizeof(double complex)*dimx*dimy); 
+  g = (double *) fftw_malloc(sizeof(double)*dimx*dimy); 
 
   for (i=0; i<dimx; i++) {
     for (j=0; j<dimy; j++) {
@@ -85,26 +87,27 @@ pointer to new array.
       else ff[dimx*i+j] = f[dimx*i+j];
     }
   }
-
+/*
   printf("ff:\n");
   for (i=0; i<dimx; i++) {
     for (j=0; j<dimy; j++) 
       printf(creal(ff[dimx*i+j]) < 0.0  ? "%s " : " %s", cfs(ff[dimx*i + j]));
     printf("\n");
   }
-  printf("OK 84\n"); 
+  */
   p = fftw_plan_dft_2d(dimx, dimy, ff, fff, FFTW_BACKWARD,FFTW_ESTIMATE);
-  printf("OK 88\n"); 
-  fftw_execute(p);             
+  /*
+   * fftw_execute(p);             
   printf("fff:\n");
   for (i=0; i<dimx; i++) {
     for (j=0; j<dimy; j++) 
       printf(creal(fff[dimx*i+j]) < 0.0  ? "%s " : " %s", cfs(fff[dimx*i + j]));
     printf("\n");
   }
+  */
   fftw_execute(p);             
   for (i=0; i<dimx*dimy; i++)
-    g[i] = creal(fff[i]);
+    g[i] = creal(fff[i]) / (double) (dimx*dimy);;   // ff needs to be normalized
 
   return g;
 } //fft2d_c2r
