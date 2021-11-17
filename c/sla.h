@@ -32,17 +32,21 @@ x, y, kx, ky = intermediate variables for X,Y,KX,KY
 X,Y = physical coordinate mesh
 KX, KY = wave number mesh
 K2 = kx^2 + ky^2 for (kx,ky) in [KX,KY]
+hypvisc
+wzq : vorticity over time
 -------------------------------------------------------------------------------*/
 double dx = LX/NX;
 double dy = LY/NY;
 double *x,*y,*kx,*ky;
 double **X,**Y, **KX, **KY, **K2;
 double hypvisc[NX][NY];
-double wzq[NX][NY][NT+1];
-double vx[NX][NY];
+double wzq[NT+1][NX*NY];
+double complex *ipsiky, *negipsikx;
+double *vx;
+double *vy;
+double *V2;
 double vxb[NX][NY];
-double vy[NX][NY];  
-double psi[NX][NY]; 
+double complex *psi; 
 double delx[NX][NY];
 double dely[NX][NY];
 double xi[NX][NY];  
@@ -56,8 +60,10 @@ double **x_buf;
 double **y_buf;
 //double rho[NT+1][NX][NY];     
 double ***rho;
-double vxw_x[NX][NY];
-double vxw_y[NX][NY];
+double complex *vxw_x;
+double complex *vxw_y;;
+double *temp_real;
+double complex *temp_complex;
 double nlxf[NX][NY]; 
 double nlyf[NX][NY]; 
 double hf[NX][NY];   
@@ -199,13 +205,31 @@ void printrm(double **M, int dimx, int dimy)
       printf(j != dimy-1 ? "%-6lf\t" : "%-6lf\n", M[i][j]);
   }
 }
+
+/* print real matrix in row major format */
+void printrm_rowmaj(double *M, int dimx, int dimy)
+{
+  for (int i=0; i<dimx; i++) {
+    for (int j=0; j<dimy; j++)
+      printf(j != dimy-1 ? "%-6lf\t" : "%-6lf\n", M[i*dimx +j]);
+  }
+}
           
 /* print complex matrix*/
-void printcm(double **M, int dimx, int dimy)
+void printcm(double complex **M, int dimx, int dimy)
 {
   for (int i=0; i<dimx; i++) {
     for (int j=0; j<dimy; j++)
       printf(j != dimy-1 ? "%-6s\t" : "%-6s\n", cfs(M[i][j]));
+  }
+}
+
+/* print complex matrix in row major format*/
+void printcm_rowmaj(double complex *M, int dimx, int dimy)
+{
+  for (int i=0; i<dimx; i++) {
+    for (int j=0; j<dimy; j++)
+      printf(j != dimy-1 ? "%-6s\t" : "%-6s\n", cfs(M[i*dimx+j]));
   }
 }
 

@@ -189,9 +189,13 @@ int main() {
       printf("%f\t",vxb[i][j]);
     printf("\n");
   }
-  /* initialize vorticity */
   
-  /* ALL entries in wzq[NX][NY][NT+1] are already initialized to 0 */
+  /* initialize vorticity */
+  double scalar_mult = 0.1;    /* TODO: why is this set to 0 in the matlab code?? */
+  for (i=0; i < NX; i++)
+    for (j=0; j < NY; j++)
+      wzq[0][i*NX + j] = scalar_mult * X[i][j];
+  
 
   /* initialize random dust density */
   rho = (double ***) malloc(sizeof(double **) * NT);
@@ -206,8 +210,63 @@ int main() {
       printf("%f\t",rho[0][i][j]);
     printf("\n");
   }
- return 0;
 
+  /* find velocity from vorticity via streamfunction */
+  psi = fft2d_r2c(wzq[0], NX, NY);
+  ipsiky = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
+  negipsikx = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
+  for (i=0; i<NX; i++)
+    for (j=0; j<NY; j++) {
+      psi[i*NX+j] = psi[i*NX+j] / K2[i][j];
+      ipsiky[i*NX+j] = I*psi[i*NX+j]*KY[i][j];
+      negipsikx[i*NX+j] = -I*psi[i*NX+j]*KX[i][j];
+    }
+  vx = fft2d_c2r(ipsiky, NX, NY);
+  vy = fft2d_c2r(negipsikx, NX, NY);
+  free(ipsiky);
+  free(negipsikx);
+  printf("psi\n"); 
+  printcm_rowmaj(psi, NX, NY);
+  printf("vx:\n");
+  printrm_rowmaj(vx, NX, NY);
+  printf("vy:\n");
+  printrm_rowmaj(vy, NX, NY);
+  V2 = (double *) malloc(sizeof(double)*NX*NY);
+  for (i=0; i<NX; i++)
+    for(j=0; j<NY; j++)
+      V2[i*NX+j] = vx[i*NX+j]*vx[i*NX+j] + vy[i*NX+j]*vy[i*NX+j];
+  vxw_x = fft2d_r2c(V2, NX, NY);
+  for (i=0; i<NX; i++)
+    for(j=0; j<NY; j++)
+      vxw_x[i*NX+j] = -0.5 * vxw_x[i*NX+j];
+  vxw_y = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
+  for (i=0; i<NX; i++)
+    for(j=0; j<NY; j++) {
+      vxw_y[i*NX+j] = I*KY[i][j]*vxw_x[i*NX+j];
+      vxw_x[i*NX+j] = I*KX[i][j]*vxw_x[i*NX+j];
+    }
+  temp_real = (double *) malloc(sizeof(double)*NX*NY);
+  temp_complex = (double complex *) fftw_malloc(sizeof(double)*NX*NY);
+  for (i=0; i<NX; i++)
+    for(j=0; j<NY; j++)
+      temp_real[i*NX+j] = vy[i*NX+j]*(wzq[0][i*NX+j]+2.0*(omega+shear));
+  temp_complex = fft2d_r2c(temp_real, NX, NY);
+  for (i=0; i<NX; i++)
+    for(j=0; j<NY; j++)
+      vxw_x[i*NX+j] = vxw_x[i*NX+j] + temp_complex[i*NX+j];
+  free(temp_real);
+  free(temp_complex);
+  for (i=0; i<NX; i++)
+    for(j=0; j<NY; j++)
+      temp_real[i*NX+j] = vx[i*NX+j]*(wzq[0][i*NX+j]+2.0*(omega));
+  temp_complex = fft2d_r2c(temp_real, NX, NY);
+  for (i=0; i<NX; i++)
+    for(j=0; j<NY; j++)
+      vxw_y[i*NX+j] = vxw_y[i*NX+j] - temp_complex[i*NX+j];
+  free(temp_real);
+  free(temp_complex);
+
+  return 0;
 
 }
 
