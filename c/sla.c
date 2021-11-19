@@ -198,20 +198,21 @@ int main() {
   
 
   /* initialize random dust density */
-  rho = (double ***) malloc(sizeof(double **) * NT);
+  rho = (double **) malloc(sizeof(double *)*NT);
   rho[0]=noise2d(msqrt(K2,NX,NY), NX, NY, M_PI / dx / 64.0, M_PI / dx / 2.0, 1.0, 1.0);
   for (i=0; i< NX; i++) 
     for (j=0; j<NY; j++)
-      rho[0][i][j] = 0.1 * (1.0 + .01*rho[0][i][j]);
+      rho[0][i*NX+j] = 0.1 * (1.0 + .01*rho[0][i*NX+j]);
 
   printf("rho t=0:\n");
   for (i=0; i < NX;i++) {
-    for(j=0; j<NY;j++)
-      printf("%f\t",rho[0][i][j]);
+    for(j=0; j < NY;j++)
+      printf("%f\t",rho[0][i*NX+j]);
     printf("\n");
   }
 
   /* find velocity from vorticity via streamfunction */
+  // TODO:  the values of the matrices are odd... (in MATLAB as well)
   psi = fft2d_r2c(wzq[0], NX, NY);
   ipsiky = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
   negipsikx = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
@@ -246,7 +247,6 @@ int main() {
       vxw_x[i*NX+j] = I*KX[i][j]*vxw_x[i*NX+j];
     }
   temp_real = (double *) malloc(sizeof(double)*NX*NY);
-  temp_complex = (double complex *) fftw_malloc(sizeof(double)*NX*NY);
   for (i=0; i<NX; i++)
     for(j=0; j<NY; j++)
       temp_real[i*NX+j] = vy[i*NX+j]*(wzq[0][i*NX+j]+2.0*(omega+shear));
@@ -254,7 +254,6 @@ int main() {
   for (i=0; i<NX; i++)
     for(j=0; j<NY; j++)
       vxw_x[i*NX+j] = vxw_x[i*NX+j] + temp_complex[i*NX+j];
-  free(temp_real);
   free(temp_complex);
   for (i=0; i<NX; i++)
     for(j=0; j<NY; j++)
@@ -265,6 +264,13 @@ int main() {
       vxw_y[i*NX+j] = vxw_y[i*NX+j] - temp_complex[i*NX+j];
   free(temp_real);
   free(temp_complex);
+  printf("vxw_x\n"); 
+  printcm_rowmaj(vxw_x, NX, NY);
+  printf("vxw_y\n");
+  printcm_rowmaj(vxw_y, NX, NY);
+
+  /* compute gas pressure and dust drift velocity */
+
 
   return 0;
 

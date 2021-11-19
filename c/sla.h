@@ -33,7 +33,8 @@ X,Y = physical coordinate mesh
 KX, KY = wave number mesh
 K2 = kx^2 + ky^2 for (kx,ky) in [KX,KY]
 hypvisc
-wzq : vorticity over time
+wzq : vorticity 
+rho : dust density
 -------------------------------------------------------------------------------*/
 double dx = LX/NX;
 double dy = LY/NY;
@@ -41,6 +42,7 @@ double *x,*y,*kx,*ky;
 double **X,**Y, **KX, **KY, **K2;
 double hypvisc[NX][NY];
 double wzq[NT+1][NX*NY];
+double **rho;
 double complex *ipsiky, *negipsikx;
 double *vx;
 double *vy;
@@ -59,7 +61,6 @@ double **x_buf;
 //double y_buf[nx+2*bufx][ny+2*bufy]; 
 double **y_buf;
 //double rho[NT+1][NX][NY];     
-double ***rho;
 double complex *vxw_x;
 double complex *vxw_y;;
 double *temp_real;
@@ -119,24 +120,24 @@ fft2d:  Performs fast fourier transform real->freq and freq->real
 ------------------------------------------------------------------------------*/
 
 /* returns root mean squared of 2D array of complex doubles */
-double complex crms2d(double complex **k, int dimx, int dimy) {
+double complex crms2d(double complex *a, int dimx, int dimy) {
   double complex rms = 0;
   // sum square of each element
   for (int i=0; i<dimx; i++)
    for (int j=0; j<dimy; j++)
-    rms += k[i][j]*k[i][j]; 
+    rms += a[i*NX+j]*a[i*NX+j]; 
   // average
   rms /= dimx*dimy;
   return csqrt(rms);
 }
 
 /* returns root mean squared of 2D array of doubles */
-double complex rms2d(double **k, int dimx, int dimy) {
+double complex rms2d(double *a, int dimx, int dimy) {
   double rms = 0;
   // sum square of each element
   for (int i=0; i<dimx; i++)
    for (int j=0; j<dimy; j++)
-    rms += k[i][j]*k[i][j]; 
+    rms += a[i*dimx+j]*a[i*dimx+j]; 
   // average
   rms /= dimx*dimy;
   return sqrt(rms);
@@ -240,11 +241,11 @@ double complex cmean1D(double complex *k, int size) {
   return sum / size;
 }
 /* mean of matrix of complex values */
-double complex cmean2d(double complex **k, int nx,int ny) {
+double complex cmean2d(double complex **k, int dimx,int dimy) {
   double complex sum = 0;
-  for (int i=0; i<nx; i++)
-    sum += cmean1D(k[i],ny);
-  return sum / nx;
+  for (int i=0; i<dimx; i++)
+    sum += cmean1D(k[i],dimy);
+  return sum / dimx;
 }
 
 /* element-wise square of 2D array of complex doubles */ 
@@ -258,36 +259,37 @@ void csq2d(double complex **k, int dimx, int dimy) {
 /* Initialize grid of random noise in Fourier space */
 // TODO:  row major problem with fftw
 // TODO: what is the type of the array that is passed to this function?
-double ** noise2d(double **k, int nx, int ny, double kmin, double kmax, int kpow, double rms_noise) {
+double* noise2d(double **k, int dimx, int dimy, double kmin, double kmax, int kpow, double rms_noise) {
   int i, j;
  // TODO:  What function does rms_noise have? 
   double complex rms;
-  double *noise_return_flat = (double *) malloc(sizeof(double)*nx*ny);
-  double **noise_return = (double **) malloc(sizeof(double *)*nx);
-  for (i=0; i<nx; i++)
-    noise_return[i] = (double *) malloc(sizeof(double)*ny);
-  double complex *noise = (double complex *) fftw_malloc(sizeof(double complex) * nx*ny);
+  //double *noise_return_flat = (double *) malloc(sizeof(double)*nx*ny);
+  double *noise_return;
+  //for (i=0; i<nx; i++)
+   // noise_return[i] = (double *) malloc(sizeof(double)*ny);
+  double complex *noise = (double complex *) fftw_malloc(sizeof(double complex) * dimx*dimy);
   int ii, jj;
-  for (jj=1; jj<ny; jj++) {                        // TODO: why is indexing starting at 1? 
-    for (ii=1; ii<nx; ii++) { 
+  for (jj=1; jj<dimy; jj++) {                        // TODO: why is indexing starting at 1? 
+    for (ii=1; ii<dimx; ii++) { 
       if ((k[ii][jj] >=kmin) && (k[ii][jj] <=kmax)) {
-        noise[ii*nx + jj] = cpow(M_E, 2*I*M_PI*((double) rand()/ (double) RAND_MAX)) /
+        noise[ii*dimx + jj] = cpow(M_E, 2*I*M_PI*((double) rand()/ (double) RAND_MAX)) /
             pow(k[ii][jj],kpow);
       }
     }
   }
   
-  noise_return_flat = fft2d_c2r(noise, nx, ny);
-  for (i=0; i<nx; i++) {
-    for(j=0; j<ny; j++) {
-      noise_return[i][j] = noise_return_flat[nx*i + j];
-    }
-  }
+  //noise_return_flat = fft2d_c2r(noise, nx, ny);
+  noise_return = fft2d_c2r(noise, dimx, dimy);
+//  for (i=0; i<nx; i++) {
+//    for(j=0; j<ny; j++) {
+//      noise_return[i][j] = noise_return_flat[nx*i + j];
+//    }
+//  }
 
-  rms = rms2d(noise_return, nx, ny); // TODO: rms2d takes rms of squared entries
+  rms = rms2d(noise_return, dimx, dimy); // TODO: rms2d takes rms of squared entries
   // noise = noise/rms * rms_noise
-  for (i=0; i<nx; i++)
-    for (j=0; j<ny; j++)
-      noise_return[i][j] = noise_return[i][j] / rms * rms_noise;
+  for (i=0; i<dimx; i++)
+    for (j=0; j<dimy; j++)
+      noise_return[i*dimx+j] = noise_return[i*dimx+j] / rms * rms_noise;
   return noise_return;
 }
