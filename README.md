@@ -1,5 +1,5 @@
 # sla-planet-sim (WORK IN PROGRESS)
-Simulating the birth of planets using semi-Lagrangian advection.
+Simulating the birth of planets using semi-Lagrangian advection and spectral methods.
 
 Based on the research and code contained in 
 SIMULATING THE BIRTH OF PLANETS: A SPECTRAL SEMI-LAGRANGIAN HYDRODYNAMIC APPROACH,
