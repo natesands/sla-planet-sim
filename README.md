@@ -8,3 +8,6 @@ a Master's thesis by Wendy Crumrine. Code ported to C from MATLAB for paralleliz
 |![](images/time-lapse.gif)|
 |:--:| 
 | Simulation of changing dust densities in proto-planetary disc leading to the formation of planetesimals. |
+
+fft.h / fft.c - Fast fourier transform functions based on FFTW3. 
+sla.h / sla.c - Variable declarations and function defintions. 
