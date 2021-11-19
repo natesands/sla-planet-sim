@@ -7,4 +7,4 @@ a Master's thesis by Wendy Crumrine. Code ported to C from MATLAB for paralleliz
 
 |![](images/time-lapse.gif)|
 |:--:| 
-| Evolution of dust densities in proto-planetary disc leading to the formation of planetesimals. |
+| Simulation of changing dust densities in proto-planetary disc leading to the formation of planetesimals. |
