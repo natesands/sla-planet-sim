@@ -198,6 +198,7 @@ int main() {
   
 
   /* initialize random dust density */
+  // NOTE:  only initializaing the first rho grid here
   rho = (double **) malloc(sizeof(double *)*NT);
   rho[0]=noise2d(msqrt(K2,NX,NY), NX, NY, M_PI / dx / 64.0, M_PI / dx / 2.0, 1.0, 1.0);
   for (i=0; i< NX; i++) 
@@ -270,7 +271,62 @@ int main() {
   printcm_rowmaj(vxw_y, NX, NY);
 
   /* compute gas pressure and dust drift velocity */
-
+  fac1 = (double *) malloc(sizeof(double)*NX*NY);
+  double* rho_frame = rho[0];
+  for (i=0; i<NX; i++)
+    for (j=0; j<NY; j++) 
+      fac1[i*NX+j] = (rho_frame[i*NX+j] / rho0) / ((1.0 + rho_frame[i*NX+j] / rho0)*(1.0 + rho_frame[i*NX+j] / rho0)
+          + (2.0*omega*tau)*(2.0*omega*tau));
+ 
+  printf("fac1:\n"); 
+  printrm_rowmaj(fac1, NX, NY);
+  qx = (double complex*) fftw_malloc(sizeof(double)*NX*NY);
+  qy = (double complex*) fftw_malloc(sizeof(double)*NX*NY);
+  for (i=0; i<NX; i++)
+    for (j=0; j<NY; j++) {
+      qx[i*NX+j] = 0;
+      qy[i*NX+j] = 0;
+    }
+ // memset(qx, 0, NX*NY*sizeof(double));
+ // memset(qy, 0, NX*NY*sizeof(double));
+  double complex *tmp_dPdx = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
+  double complex *tmp_dPdy = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
+  double *tmp_dPdx_r = (double *) fftw_malloc(sizeof(double)*NX*NY);
+  double *tmp_dPdy_r = (double *) fftw_malloc(sizeof(double)*NX*NY);
+  for (int k=0; k < num_pressure_iter; k++) {
+    for (i=0; i<NX; i++)
+      for(j=0; j<NY; j++) {
+        nlxf[i*NX+j] = vxw_x[i*NX+j] + qx[i*NX+j];
+        nlyf[i*NX+j] = vxw_y[i*NX+j] + qy[i*NX+j];
+        hf[i*NX+j] = -I*(KX[i][j]*nlxf[i*NX+j]+KY[i][j]*nlyf[i*NX+j])/K2[i][j];
+        tmp_dPdx[i*NX+j] = I*KX[i][j]*hf[i*NX+j];
+        tmp_dPdy[i*NX+j] = I*KY[i][j]*hf[i*NX+j];
+      }
+    dPdx = fft2d_c2r(tmp_dPdx, NX, NY);
+    dPdy = fft2d_c2r(tmp_dPdy, NX, NY);
+    for (i=0; i<NX; i++)
+      for(j=0; j<NY; j++)
+        dPdy[i*NX+j] += dPdR;
+    for (i=0; i<NX; i++)
+      for(j=0; j<NY; j++) {
+        tmp_dPdx_r[i*NX+j] = fac1[i*NX+j]*((1.0 + rho_frame[i*NX+j] / rho0)*dPdx[i*NX+j] + 2.0*omega*tau*dPdy[i*NX+j]);
+        tmp_dPdy_r[i*NX+j] = fac1[i*NX+j]*((1.0 + rho_frame[i*NX+j] / rho0)*dPdy[i*NX+j] - 2.0*omega*tau*dPdx[i*NX+j]);
+      }
+    free(qx);
+    free(qy);
+    double complex *qqx = fft2d_r2c(tmp_dPdx_r, NX, NY);
+    double complex *qqy = fft2d_r2c(tmp_dPdy_r, NX, NY);
+    qx = qqx;   // TODO: WHY is this necessary?? getting "modified after being freed" error otherwise
+    qy = qqy;
+    qqx = NULL;
+    qqy = NULL;
+    printf("qx:\n");
+    printcm_rowmaj(qx, NX, NY);
+  }
+  free(tmp_dPdx);
+  free(tmp_dPdy);
+  free(tmp_dPdx_r);
+  free(tmp_dPdy_r);
 
   return 0;
 
