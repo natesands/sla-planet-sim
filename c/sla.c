@@ -312,15 +312,17 @@ int main() {
         tmp_dPdx_r[i*NX+j] = fac1[i*NX+j]*((1.0 + rho_frame[i*NX+j] / rho0)*dPdx[i*NX+j] + 2.0*omega*tau*dPdy[i*NX+j]);
         tmp_dPdy_r[i*NX+j] = fac1[i*NX+j]*((1.0 + rho_frame[i*NX+j] / rho0)*dPdy[i*NX+j] - 2.0*omega*tau*dPdx[i*NX+j]);
       }
-    free(qx);
-    free(qy);
-    double complex *qqx = fft2d_r2c(tmp_dPdx_r, NX, NY);
-    double complex *qqy = fft2d_r2c(tmp_dPdy_r, NX, NY);
-    qx = qqx;   // TODO: WHY is this necessary?? getting "modified after being freed" error otherwise
-    qy = qqy;
-    qqx = NULL;
-    qqy = NULL;
-    printf("qx:\n");
+    fftw_free(qx);
+    fftw_free(qy);
+    qx = fft2d_r2c(tmp_dPdx_r, NX, NY);
+    qy = fft2d_r2c(tmp_dPdy_r, NX, NY);
+   // double complex *qqx = fft2d_r2c(tmp_dPdx_r, NX, NY);
+   // double complex *qqy = fft2d_r2c(tmp_dPdy_r, NX, NY);
+   // qx = qqx;   // TODO: WHY is this necessary?? getting "modified after being freed" error otherwise
+   // qy = qqy;
+   // qqx = NULL;
+   // qqy = NULL;
+   // printf("qx:\n");
     printcm_rowmaj(qx, NX, NY);
   }
   free(tmp_dPdx);
