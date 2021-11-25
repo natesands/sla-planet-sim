@@ -225,8 +225,8 @@ int main() {
     }
   vx = fft2d_c2r(ipsiky, NX, NY);
   vy = fft2d_c2r(negipsikx, NX, NY);
-  free(ipsiky);
-  free(negipsikx);
+  // fftw_free(ipsiky);
+  // fftw_free(negipsikx);
   printf("psi\n"); 
   printcm_rowmaj(psi, NX, NY);
   printf("vx:\n");
@@ -255,7 +255,7 @@ int main() {
   for (i=0; i<NX; i++)
     for(j=0; j<NY; j++)
       vxw_x[i*NX+j] = vxw_x[i*NX+j] + temp_complex[i*NX+j];
-  free(temp_complex);
+  //fftw_free(temp_complex);
   for (i=0; i<NX; i++)
     for(j=0; j<NY; j++)
       temp_real[i*NX+j] = vx[i*NX+j]*(wzq[0][i*NX+j]+2.0*(omega));
@@ -263,8 +263,8 @@ int main() {
   for (i=0; i<NX; i++)
     for(j=0; j<NY; j++)
       vxw_y[i*NX+j] = vxw_y[i*NX+j] - temp_complex[i*NX+j];
-  free(temp_real);
-  free(temp_complex);
+  //free(temp_real);
+  //fftw_free(temp_complex);
   printf("vxw_x\n"); 
   printcm_rowmaj(vxw_x, NX, NY);
   printf("vxw_y\n");
@@ -280,24 +280,15 @@ int main() {
  
   printf("fac1:\n"); 
   printrm_rowmaj(fac1, NX, NY);
-  qx = (double complex*) fftw_malloc(sizeof(double)*NX*NY);
-  qy = (double complex*) fftw_malloc(sizeof(double)*NX*NY);
-  for (i=0; i<NX; i++)
-    for (j=0; j<NY; j++) {
-      qx[i*NX+j] = 0;
-      qy[i*NX+j] = 0;
-    }
- // memset(qx, 0, NX*NY*sizeof(double));
- // memset(qy, 0, NX*NY*sizeof(double));
   double complex *tmp_dPdx = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
   double complex *tmp_dPdy = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
-  double *tmp_dPdx_r = (double *) fftw_malloc(sizeof(double)*NX*NY);
-  double *tmp_dPdy_r = (double *) fftw_malloc(sizeof(double)*NX*NY);
+  double *tmp_dPdx_r = (double *) malloc(sizeof(double)*NX*NY);
+  double *tmp_dPdy_r = (double *) malloc(sizeof(double)*NX*NY);
   for (int k=0; k < num_pressure_iter; k++) {
     for (i=0; i<NX; i++)
       for(j=0; j<NY; j++) {
-        nlxf[i*NX+j] = vxw_x[i*NX+j] + qx[i*NX+j];
-        nlyf[i*NX+j] = vxw_y[i*NX+j] + qy[i*NX+j];
+        nlxf[i*NX+j] = vxw_x[i*NX+j] + (k==0 ? 0 : qx[i*NX+j]);
+        nlyf[i*NX+j] = vxw_y[i*NX+j] + (k==0 ? 0 : qy[i*NX+j]);
         hf[i*NX+j] = -I*(KX[i][j]*nlxf[i*NX+j]+KY[i][j]*nlyf[i*NX+j])/K2[i][j];
         tmp_dPdx[i*NX+j] = I*KX[i][j]*hf[i*NX+j];
         tmp_dPdy[i*NX+j] = I*KY[i][j]*hf[i*NX+j];
@@ -316,20 +307,16 @@ int main() {
     fftw_free(qy);
     qx = fft2d_r2c(tmp_dPdx_r, NX, NY);
     qy = fft2d_r2c(tmp_dPdy_r, NX, NY);
-   // double complex *qqx = fft2d_r2c(tmp_dPdx_r, NX, NY);
-   // double complex *qqy = fft2d_r2c(tmp_dPdy_r, NX, NY);
-   // qx = qqx;   // TODO: WHY is this necessary?? getting "modified after being freed" error otherwise
-   // qy = qqy;
-   // qqx = NULL;
-   // qqy = NULL;
-   // printf("qx:\n");
-    printcm_rowmaj(qx, NX, NY);
+
   }
-  free(tmp_dPdx);
-  free(tmp_dPdy);
+  fftw_free(tmp_dPdx);
+  fftw_free(tmp_dPdy);
   free(tmp_dPdx_r);
   free(tmp_dPdy_r);
-
+  printf("qx:\n"); 
+  printcm_rowmaj(qx, NX, NY);
+  printf("qy:\n"); 
+  printcm_rowmaj(qy, NX, NY);
   return 0;
 
 }

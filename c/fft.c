@@ -47,7 +47,7 @@ pointer to new array.
         g[dimx*i+j] = 0.0;
     } // end for j
   } // end for i
-  free(ff);
+  fftw_free(ff);
   return g;
 } //fft2d_r2c
 

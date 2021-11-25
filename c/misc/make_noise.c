@@ -11,10 +11,10 @@
 int main() {
   double arr[DIMX*DIMY];
   FILE *outFile;
-  outFile = fopen("randarray.txt","r");
+  outFile = fopen("randarray.txt","w");
 
   srand(time(NULL));
-  for (int i = 0; i < DIMX*DIMY; i++)
+  for (int i = 0; i < DIMX*DIMY; i++) 
     fprintf(outFile, "%f ", (double) rand() / (double) RAND_MAX);
 
   fclose(outFile);
