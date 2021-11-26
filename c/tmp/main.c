@@ -17,41 +17,22 @@ int main() {
   int i, j; 
   srand(time(NULL));
 
-
-  /* Initialize space grids X, Y using points x, y */
-  /*
+  // Initialize spatial and wave number grids
+  // X,Y = physical coordinate mesh
   X = (double **) malloc(sizeof(double *) * NX);
   for (i=0; i<NX; i++)
     X[i] = (double *) malloc(sizeof(double) * NY);
   Y = (double **) malloc(sizeof(double *) * NX);
   for (i=0; i<NX; i++)
-    Y[i] = (double *) malloc(sizeof(double) * NY); 
-  x = (double *) malloc(sizeof(double)*NX); 
-  y = (double *) malloc(sizeof(double)*NY);
+    Y[i] = (double *) malloc(sizeof(double) * NY); x = (double *) malloc(sizeof(double)*NX); y = (double *) malloc(sizeof(double)*NY);
   for (i=0; i<NX; i++) 
     x[i] = (double) i*dx-.5*LX;
   for (i=0; i<NY; i++)
     y[i] = (double) i*dy-.5*LY;
-  grid2d(X, Y, NX, NY, x, y);
-  */
-  
-  /* Initialize space grids X, Y using points x, y */
-  X = (double*) malloc(sizeof(double)*NX*NY);
-  Y = (double*) malloc(sizeof(double)*NX*NY);
-  x = (double *) malloc(sizeof(double)*NX); 
-  y = (double *) malloc(sizeof(double)*NY);
-  for (i=0; i<NX; i++) {
-    x[i] = (double) i*dx-.5*LX;
-    printf("x:%f\n", x[i]); 
-  }
-  for (i=0; i<NY; i++) {
-    y[i] = (double) i*dy-.5*LY;
-    printf("y:%f\n", y[i]);
-  }
+
   grid2d(X, Y, NX, NY, x, y);
 
-  /*  Initialize wave number grids KX, KY using points kx, ky */
-  /*
+  // KX, KY = wave number mesh
   KX = (double **) malloc(sizeof(double *) * NX);
   for (i=0; i<NX; i++)
     KX[i] = (double *) malloc(sizeof(double) * NY);
@@ -68,27 +49,10 @@ int main() {
     ky[i] = (double) (i<NY/2+1) ? i : i-NY;
     ky[i] = ky[i]*(2*M_PI/LY);
   }
-  grid2d(KX, KY, NX, NY, kx, ky);
-  */
 
-  
-  /*  Initialize wave number grids KX, KY using points kx, ky */
-  KX = (double*) malloc(sizeof(double)*NX*NY);
-  KY = (double*) malloc(sizeof(double)*NX*NY);
-  kx = (double*) malloc(sizeof(double)*NX);
-  ky = (double*) malloc(sizeof(double)*NY);
-  for (i=0; i<NX; i++) {                         // TODO: double check indexing
-    kx[i] = (double) (i<NX/2+1) ? i : i-NX;
-    kx[i] = kx[i]*(2*M_PI/LX);
-  }
-  for (i=0; i<NY; i++) {
-    ky[i] = (double) (i<NY/2+1) ? i : i-NY;
-    ky[i] = ky[i]*(2*M_PI/LY);
-  }
   grid2d(KX, KY, NX, NY, kx, ky);
 
-  /* Initialize grid of squared wave numbers K2 = kx^2 + ky^2 for (kx,ky) in [KX,KY] */
-  /*
+  // K2 = kx^2 + ky^2 for (kx,ky) in [KX,KY]
   K2 = (double **) malloc(sizeof(double *) * NX);
   for (i=0; i<NX; i++)
     K2[i] = (double *) malloc(sizeof(double) * NY);
@@ -96,29 +60,21 @@ int main() {
     for (j=0; j<NY; j++)
       K2[i][j] = KX[i][j]*KX[i][j] + KY[i][j]*KY[i][j];
   K2[0][0] = 1.0;
-  */
-  /* Initialize grid of squared wave numbers K2 = kx^2 + ky^2 for (kx,ky) in [KX,KY] */
-  K2 = (double*) malloc(sizeof(double*)*NX*NY);
-  for (i=0; i<NX*NY; i++)
-    K2[i] = KX[i]*KX[i] + KY[i]*KY[i];
-  
+
   printf("X:\n");
-  printrm_rowmaj(X, NX, NY);
- /* for (i=0; i<NX; i++) {
+  for (i=0; i<NX; i++) {
     for (j=0; j<NY; j++) 
       printf("%f\t", X[i][j]);
     printf("\n");
-  } */
+  }
   
   printf("Y:\n");
-  printrm_rowmaj(Y, NX, NY);
-  /*for (i=0; i<NX; i++) {
+  for (i=0; i<NX; i++) {
     for (j=0; j<NY; j++) 
       printf("%f\t", Y[i][j]);
     printf("\n");
-  }*/
-  
-/*
+  }
+
   printf("KX:\n");
   for (i=0; i<NX; i++) {
     for (j=0; j<NY; j++) 
@@ -139,11 +95,10 @@ int main() {
       printf("%f\t", K2[i][j]);
     printf("\n");
   }
-*/
 
 //  rho0 = 1.0;
 //  omega = 1.0;
-//    shear = -1.5*1;
+    shear = -1.5*1;
 //  dPdR = -0.10;
 //  tau = 0.005;
 //  dt = 1.0/8.0;
@@ -157,7 +112,6 @@ int main() {
 //  hypvisc = (double **) malloc(sizeof(double *) * NX);
 //  for (i=0; i<NX; i++)
 //    hypvisc[i] = (double *) malloc(sizeof(double) * NY);
-/*
   for (i=0; i<NX; i++)
     for (j=0; j<NY; j++) 
       hypvisc[i][j] = exp(-8.0*(pow(K2[i][j]/sq(M_PI/dx),(hypviscpow/2))));
@@ -170,7 +124,7 @@ int main() {
       printf("%f\t", hypvisc[i][j]);
     printf("\n");
   }
-*/
+
   
 //  printf("qx:\n");
 //  for (i=0; i<NX; i++) {
@@ -198,7 +152,6 @@ int main() {
 //    printf("\n");
 //  }
 //
-  /*
   x_buf = add_buffer(X, NX, NY, BUFX, BUFY); // x_buf is (NX+2*BUFX) x (NY+2*BUFY)
   for (i=0; i<BUFX; i++)
     for (j=0; j<NY+2*BUFY; j++) {
@@ -212,7 +165,7 @@ int main() {
       printf("%f\t",x_buf[i][j]);
     printf("\n");
   }
-  y_buf = add_buffer(Y, NX, NY, BUFX, BUFY); 
+  y_buf = add_buffer(Y, NX, NY, BUFX, BUFY); // y_buf is (NX+2*BUFX) x (NY+2*BUFY)
   for (j=0; j<BUFY; j++)
     for (i=0; i<NX+2*BUFX; i++) {
       y_buf[i][j] -= LY;
@@ -225,6 +178,7 @@ int main() {
       printf("%f\t",y_buf[i][j]);
     printf("\n");
   }
+  /* initialize background shear */
   for (i=0; i<NX; i++)
     for (j=0; j<NY; j++) 
       vxb[i][j] = -shear*Y[i][j]*(0.5*(tanh(8.0*(Y[i][j]+0.4*LY))-tanh(8.0*(Y[i][j]-0.4*LY))));
@@ -235,20 +189,16 @@ int main() {
       printf("%f\t",vxb[i][j]);
     printf("\n");
   }
-  */
-
-  /* TODO: why is this set to 0 in the matlab code?? */
- /* 
-  double scalar_mult = 0.1;      
+  
+  /* initialize vorticity */
+  double scalar_mult = 0.1;    /* TODO: why is this set to 0 in the matlab code?? */
   for (i=0; i < NX; i++)
     for (j=0; j < NY; j++)
       wzq[0][i*NX + j] = scalar_mult * X[i][j];
- */ 
+  
 
   /* initialize random dust density */
   // NOTE:  only initializaing the first rho grid here
-  /*
-
   rho = (double **) malloc(sizeof(double *)*NT);
   rho[0]=noise2d(msqrt(K2,NX,NY), NX, NY, M_PI / dx / 64.0, M_PI / dx / 2.0, 1.0, 1.0);
   for (i=0; i< NX; i++) 
@@ -261,10 +211,9 @@ int main() {
       printf("%f\t",rho[0][i*NX+j]);
     printf("\n");
   }
-  */
+
   /* find velocity from vorticity via streamfunction */
   // TODO:  the values of the matrices are odd... (in MATLAB as well)
-  /*
   psi = fft2d_r2c(wzq[0], NX, NY);
   ipsiky = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
   negipsikx = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
@@ -276,10 +225,8 @@ int main() {
     }
   vx = fft2d_c2r(ipsiky, NX, NY);
   vy = fft2d_c2r(negipsikx, NX, NY);
-  */
   // fftw_free(ipsiky);
   // fftw_free(negipsikx);
-  /*
   printf("psi\n"); 
   printcm_rowmaj(psi, NX, NY);
   printf("vx:\n");
@@ -308,9 +255,7 @@ int main() {
   for (i=0; i<NX; i++)
     for(j=0; j<NY; j++)
       vxw_x[i*NX+j] = vxw_x[i*NX+j] + temp_complex[i*NX+j];
-      */
   //fftw_free(temp_complex);
-  /*
   for (i=0; i<NX; i++)
     for(j=0; j<NY; j++)
       temp_real[i*NX+j] = vx[i*NX+j]*(wzq[0][i*NX+j]+2.0*(omega));
@@ -318,17 +263,14 @@ int main() {
   for (i=0; i<NX; i++)
     for(j=0; j<NY; j++)
       vxw_y[i*NX+j] = vxw_y[i*NX+j] - temp_complex[i*NX+j];
-      */
   //free(temp_real);
   //fftw_free(temp_complex);
-  /*
   printf("vxw_x\n"); 
   printcm_rowmaj(vxw_x, NX, NY);
   printf("vxw_y\n");
   printcm_rowmaj(vxw_y, NX, NY);
-*/
+
   /* compute gas pressure and dust drift velocity */
-  /*
   fac1 = (double *) malloc(sizeof(double)*NX*NY);
   double* rho_frame = rho[0];
   for (i=0; i<NX; i++)
@@ -406,7 +348,6 @@ int main() {
   printrm_rowmaj(divq, NX, NY);
   printf("crlq:\n");
   printrm_rowmaj(crlq, NX, NY);
-  */
   return 0;
 
 }

@@ -21,8 +21,8 @@ NT = number of time steps
 BUFX, BUFY = size of buffer space for 2d arrays
 --------------------------------------------------------------------------------*/
 
-#define NX 8  // TODO: set to 16 for testing
-#define NY 16 
+#define NX 16  // TODO: set to 16 for testing
+#define NY 16
 #define LX 4.0
 #define LY 4.0
 #define NT 4096
@@ -42,8 +42,7 @@ rho : dust density
 double dx = LX/NX;
 double dy = LY/NY;
 double *x,*y,*kx,*ky;
-//double **X,**Y, **KX, **KY, **K2;
-double *X, *Y, *KX, *KY, *K2;
+double **X,**Y, **KX, **KY, **K2;
 double hypvisc[NX][NY];
 double wzq[NT+1][NX*NY];
 double **rho;
@@ -165,17 +164,6 @@ double** msqrt(double **M, int dimx, int dimy) {
   return sqrtM;
 }
 
-void grid2d(double *X, double *Y, int dimx, int dimy, double *x, double *y) {
-  int i,j;
-  for (i=0; i<dimx; i++)
-    for (j=0; j<dimy; j++) {
-      X[i*dimy+j] = x[i];
-      Y[i*dimy+j] = y[j];
-    }
- // printf("\n");
-}
-/*
-
 void grid2d (double **X, double **Y, int Nx, int Ny, double *x, double *y) {
   // Initialize mesh grids X,Y each Nx by Ny
   for (int j=0; j < Ny; j++)
@@ -186,7 +174,6 @@ void grid2d (double **X, double **Y, int Nx, int Ny, double *x, double *y) {
     for (int j=0; j < Ny; j++)
       Y[i][j] = y[j];
 }
-*/
 
 double sq(double x) { return x*x;}
 
@@ -196,19 +183,25 @@ double* add_buffer(double *X, int dimx, int dimy, int bufx, int bufy) {
   int new_dimy = 2*bufy + dimy;
   double *Xb = (double *) malloc(sizeof(double) * new_dimx * new_dimy);
   memset(Xb, 0.0, sizeof(double) * new_dimx * new_dimy);
+  // g(1+bufx:Nx+bufx,1+bufy:Ny+bufy) = f;
   for (i=0; i<dimx; i++)  // pad X with zero-filled buffer
     for (j=0; j<dimy; j++) 
       Xb[new_dimy * (i + bufx)+bufy+j] = X[i*dimy + j];
   for (i=0; i<bufx; i++)
     for (j=0; j<dimy; j++) {
+  //  g(1:bufx,1+bufy:Ny+bufy) = f(Nx-bufx+1:Nx,:)
       Xb[i*new_dimy+bufy+j] = X[(dimx-bufx+i)*dimy+j];
+  //  g(1+bufx+Nx:Nx+2*bufx,1+bufy:Ny+bufy) = f(1:bufx,:);
       Xb[new_dimy*(i+bufx+dimx) + bufy+j] = X[i*dimy + j]; 
     }
+  //  g(:,1:bufy) = g(:,Ny+1:Ny+bufy);
   for (i=0; i<new_dimx; i++)
     for (j=0; j<bufy; j++) {
       Xb[i*new_dimy+j] = Xb[i*new_dimy+dimy+j];
       Xb[i*new_dimy+dimy+bufy+j] = Xb[i*new_dimy+bufy+j]; 
     }
+  //  g(:,Ny+bufy+1:Ny+2*bufy) = g(:,1+bufy:2*bufy);
+
   return Xb;
 }
 /*

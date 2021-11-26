@@ -1,0 +1,26 @@
+#include "sla.h"
+
+
+double* add_buffer(double *X, int dimx, int dimy, int bufx, int bufy) {
+  int i,j;
+  int new_dimx = 2*bufx + dimx;
+  int new_dimy = 2*bufy + dimy;
+  double *Xb = (double *) malloc(sizeof(double) * new_dimx * new_dimy);
+  memset(Xb, 0.0, sizeof(double) * new_dimx * new_dimy);
+  for (i=0; i<dimx; i++)  
+    for (j=0; j<dimy; j++) 
+      Xb[new_dimy * (i + bufx)+bufy+j] = X[i*dimy + j];
+  for (i=0; i<bufx; i++)
+    for (j=0; j<dimy; j++) {
+      Xb[i*new_dimy+bufy+j] = X[(dimx-bufx+i)*dimy+j];
+      Xb[new_dimy*(i+bufx+dimx) + bufy+j] = X[i*dimy + j]; 
+    }
+  for (i=0; i<new_dimx; i++)
+    for (j=0; j<bufy; j++) {
+      Xb[i*new_dimy+j] = Xb[i*new_dimy+dimy+j];
+      Xb[i*new_dimy+dimy+bufy+j] = Xb[i*new_dimy+bufy+j]; 
+    }
+  return Xb;
+}
+
+
