@@ -101,6 +101,7 @@ int main() {
   K2 = (double*) malloc(sizeof(double*)*NX*NY);
   for (i=0; i<NX*NY; i++)
     K2[i] = KX[i]*KX[i] + KY[i]*KY[i];
+  K2[0] = 1.0E+64;;   // TODO:  this was done in MATLAB code to prevent division by zero?
   
   printf("X:\n");
   printrm_rowmaj(X, NX, NY);
@@ -117,7 +118,14 @@ int main() {
       printf("%f\t", Y[i][j]);
     printf("\n");
   }*/
-  
+  printf("KX:\n");
+  printrm_rowmaj(KX,NX,NY);  
+ 
+  printf("KY:\n");
+  printrm_rowmaj(KY,NX,NY);  
+
+  printf("K2:\n");
+  printrm_rowmaj(K2,NX,NY);  
 /*
   printf("KX:\n");
   for (i=0; i<NX; i++) {
@@ -141,21 +149,6 @@ int main() {
   }
 */
 
-//  rho0 = 1.0;
-//  omega = 1.0;
-//    shear = -1.5*1;
-//  dPdR = -0.10;
-//  tau = 0.005;
-//  dt = 1.0/8.0;
-//  nt = 4096;
- // ufx = NX/16;
- // bufy = NY/16;
-//  num_sl_disp_iter = 4;
-//  num_pressure_iter = 4;
-//  hypviscpow = 8;
-  
-//  hypvisc = (double **) malloc(sizeof(double *) * NX);
-//  for (i=0; i<NX; i++)
 //    hypvisc[i] = (double *) malloc(sizeof(double) * NY);
 /*
   for (i=0; i<NX; i++)
@@ -171,7 +164,13 @@ int main() {
     printf("\n");
   }
 */
-  
+  hypvisc = (double*) malloc(sizeof(double)*NX*NY);
+  for (i=0; i<NX*NY; i++)
+    hypvisc[i] = exp(-8.0*(pow(K2[i]/sq(M_PI/dx), hypviscpow/2)));
+  printf("hypvisc:\n");
+  printrm_rowmaj(hypvisc, NX, NY);
+  hypvisc[0] = 1.0;
+
 //  printf("qx:\n");
 //  for (i=0; i<NX; i++) {
 //    for (j=0; j<NY; j++) 
@@ -198,6 +197,27 @@ int main() {
 //    printf("\n");
 //  }
 //
+  x_buf = add_buffer(X, NX, NY, bufx, bufy);
+  for (i=0; i < bufx; i++)
+    for (j=0; j < NY+2*bufy; j++) {
+      x_buf[i*(NY+2*bufy) + j] -= LX;
+      x_buf[(NX + bufx)*(NY+2*bufy) + i*(NY+2*bufy) + j] += LX;
+    }
+  y_buf = add_buffer(Y, NX, NY, bufx, bufy);
+
+  printf("x_buf:\n");
+  printrm_rowmaj(x_buf, NX+2*bufx, NY+2*bufy);
+ 
+  y_buf = add_buffer(Y, NX, NY, bufx, bufy);
+  for (j=0; j < bufy; j++)
+    for (i=0; i < NX+2*bufx; i++) {
+      y_buf[i*(NY+2*bufy) + j] -= LY;
+      y_buf[i*(NY+2*bufy) + NY+bufy+j] += LY;;
+    } 
+
+  printf("y_buf:\n");
+  printrm_rowmaj(y_buf, NX+2*bufx, NY+2*bufy);
+
   /*
   x_buf = add_buffer(X, NX, NY, BUFX, BUFY); // x_buf is (NX+2*BUFX) x (NY+2*BUFY)
   for (i=0; i<BUFX; i++)
@@ -205,13 +225,7 @@ int main() {
       x_buf[i][j] -= LX;
       x_buf[NX+BUFX+i][j] += LX; 
     }
-
-  printf("x_buf:\n");
-  for (i=0; i < NX+2*BUFX;i++) {
-    for(j=0; j<NY+2*BUFY;j++)
-      printf("%f\t",x_buf[i][j]);
-    printf("\n");
-  }
+  
   y_buf = add_buffer(Y, NX, NY, BUFX, BUFY); 
   for (j=0; j<BUFY; j++)
     for (i=0; i<NX+2*BUFX; i++) {
@@ -219,50 +233,64 @@ int main() {
       y_buf[i][NY+BUFY+j] += LY;
     }
 
-  printf("y_buf:\n");
-  for (i=0; i < NX+2*BUFX;i++) {
-    for(j=0; j<NY+2*BUFY;j++)
-      printf("%f\t",y_buf[i][j]);
-    printf("\n");
-  }
+  
   for (i=0; i<NX; i++)
     for (j=0; j<NY; j++) 
       vxb[i][j] = -shear*Y[i][j]*(0.5*(tanh(8.0*(Y[i][j]+0.4*LY))-tanh(8.0*(Y[i][j]-0.4*LY))));
+  */
+
+  /* Initialize background shear */ 
+  vxb = (double*) malloc(sizeof(double)*NX*NY);
+  for (i=0; i<NX*NY; i++)
+    vxb[i] = -shear * Y[i] * (0.5 * (tanh(8.0 * (Y[i] + 0.4*LY))-tanh(8.0* (Y[i] - 0.4*LY))));    // NB: shear=0 in MATLAB code
 
   printf("vxb:\n");
-  for (i=0; i < NX;i++) {
-    for(j=0; j<NY;j++)
-      printf("%f\t",vxb[i][j]);
-    printf("\n");
-  }
-  */
+  printrm_rowmaj(vxb, NX, NY);
 
-  /* TODO: why is this set to 0 in the matlab code?? */
- /* 
-  double scalar_mult = 0.1;      
+  
+  /* Initialize vorticity */
+  wzq[0] = (double*) malloc(sizeof(double) * NX * NY);   // TODO: why is wzq[0] set to 0*x in the MATLAB code?
+  //memset(wzq[0], 0.0, sizeof(double) * NX * NY);
+
+  /* TODO: why is wzq set to 0*x in the matlab code? The values are already 0*/
+
+ 
+  double scalar_mult = 1;      
   for (i=0; i < NX; i++)
     for (j=0; j < NY; j++)
-      wzq[0][i*NX + j] = scalar_mult * X[i][j];
- */ 
-
+      wzq[0][i*NY + j] = scalar_mult * X[i*NY+j];
+  printf("wzq:\n");
+  printrm_rowmaj(wzq[0], NX, NY);
+  
+ 
   /* initialize random dust density */
-  // NOTE:  only initializaing the first rho grid here
-  /*
-
-  rho = (double **) malloc(sizeof(double *)*NT);
-  rho[0]=noise2d(msqrt(K2,NX,NY), NX, NY, M_PI / dx / 64.0, M_PI / dx / 2.0, 1.0, 1.0);
-  for (i=0; i< NX; i++) 
-    for (j=0; j<NY; j++)
-      rho[0][i*NX+j] = 0.1 * (1.0 + .01*rho[0][i*NX+j]);
+  rho[0]=noise2d(msqrt(K2,NX*NY), NX, NY, M_PI / dx / 64.0, M_PI / dx / 2.0, 1.0, 1.0);
+  for (i=0; i< NX*NY; i++) 
+    rho[0][i] = 0.1 * (1.0 + .01*rho[0][i]);
 
   printf("rho t=0:\n");
-  for (i=0; i < NX;i++) {
-    for(j=0; j < NY;j++)
-      printf("%f\t",rho[0][i*NX+j]);
-    printf("\n");
-  }
-  */
-  /* find velocity from vorticity via streamfunction */
+  printrm_rowmaj(rho[0], NX, NY);
+  /* find velocity from vorticity via streamfunction at t=0 */
+  update_velocity_via_streamfunc(0);
+  
+  printf("psi\n");
+  printcm_rowmaj(psi, NX, NY);
+/*
+  printf("vxw_x:\n");
+  printcm_rowmaj(vxw_x, NX, NY);
+
+  printf("vxw_y:\n");
+  printcm_rowmaj(vxw_y, NX, NY);
+
+  printf("vx:\n");
+  printrm_rowmaj(vx, NX, NY);
+
+  printf("vy:\n");
+  printrm_rowmaj(vy, NX, NY);
+*/
+
+
+
   // TODO:  the values of the matrices are odd... (in MATLAB as well)
   /*
   psi = fft2d_r2c(wzq[0], NX, NY);

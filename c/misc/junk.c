@@ -1,96 +1,5 @@
-#ifndef SLA_H
-#define SLA_H
-/*-------------------------------------------------------------------------------
-sla.h is an include file for planetary formation simulation, sla.c,
-based on the research and Matlab source code contained in 
-SIMULATING THE BIRTH OF PLANETS: A SPECTRAL SEMI-LAGRANGIAN HYDRODYNAMIC APPROACH,
-a Master's thesis by Wendy Crumrine.
---------------------------------------------------------------------------------*/
-#include <stdlib.h>
-#include <complex.h>
-#include <fftw3.h>   // fast fourier transforms 
-#include <stdio.h>
-#include <math.h>
-#include <time.h>   // for random seed
-#include "fft.h"
-#include <string.h> // memset
 
-/* Constants----------------------------------------------------------------------
-NX, NY = number of grid points in the X,Y directions
-LX, LY = dimensions of grid
-NT = number of time steps
-BUFX, BUFY = size of buffer space for 2d arrays
---------------------------------------------------------------------------------*/
-
-#define NX 32  // TODO: NX, NY reset to 256
-#define NY 16 
-#define LX 4.0
-#define LY 4.0
-#define NT 4096
-#define BUFX (NX/16)
-#define BUFY (NY/16)
-
-/* Parameters-------------------------------------------------------------------
-------------------------------------------------------------------------------*/
-
-//double rho0, omega, shear, dPdR, tau, dt;
-// int num_sl_disp_iter, num_pressure_iter, hypviscpow;
-
-double rho0 = 1.0;
-double omega = 1.0;
-double shear = -1.5*1;  // set to zero in orig implementation
-double dPdR = -0.10;
-double tau = 0.005;
-double dt = 1.0/8.0;
-int num_sl_disp_iter = 4;
-int num_pressure_iter = 4;
-int hypviscpow = 8;
-int bufx = BUFX;   // TODO: get rid of this
-int bufy = BUFY;
-int ufx = NX/16;
-
-
-/* Variables---------------------------------------------------------------------
-dx, dy = grid cell dimensions
-x, y, kx, ky = intermediate variables for X,Y,KX,KY
-X,Y = physical coordinate mesh
-KX, KY = wave number mesh
-K2 = kx^2 + ky^2 for (kx,ky) in [KX,KY]
-hypvisc
-wzq : vorticity 
-rho : dust density
--------------------------------------------------------------------------------*/
-double dx = LX/NX;
-double dy = LY/NY;
-double *x,*y,*kx,*ky;
-//double **X,**Y, **KX, **KY, **K2;
-double *X, *Y, *KX, *KY, *K2;
-double *hypvisc;
-double *vxb;
-double* wzq[NT+1];  //  wzq, rho both (NT+1) x (NX*NY) 2D grids
-double* rho[NT+1];
-double *fac1;
-double *vx;
-double *vy;
-double *V2;
-double **vx_plus_vxb;  // TODO: get rid of this
-double complex *psi; 
-double complex *tmp_cplx_arr;
-double *tmp_real_arr;
-double delx[NX][NY];
-double dely[NX][NY];
-double xi[NX][NY];
-double yi[NX][NY];  
-double **vx_buf;
-double vy_buf[NX+2*BUFX][NY+2*BUFY];
-double wz_buf[NX+2*BUFX][NY+2*BUFY];
-//double x_buf[NX+2*BUFX][NY+2*BUFY]; 
-double *x_buf;
-//double y_buf[nx+2*bufx][ny+2*bufy]; 
-double *y_buf;
-double complex *vxw_x = NULL;
-double complex *vxw_y = NULL;
-
+#endif /* SLA_H */
 /* Functions-------------------------------------------------------------------
 grid2d:     initialize mesh grids -- equiv. to Matlab's ndgrid for d=2
 sq:         square value
@@ -122,7 +31,7 @@ double complex crms2d(double complex *a, int dimx, int dimy) {
   // sum square of each element
   for (int i=0; i<dimx; i++)
    for (int j=0; j<dimy; j++)
-    rms += a[i*NY+j]*a[i*NY+j]; 
+    rms += a[i*NX+j]*a[i*NX+j]; 
   // average
   rms /= dimx*dimy;
   return csqrt(rms);
@@ -134,22 +43,13 @@ double complex rms2d(double *a, int dimx, int dimy) {
   // sum square of each element
   for (int i=0; i<dimx; i++)
    for (int j=0; j<dimy; j++)
-    rms += a[i*dimy+j]*a[i*dimy+j]; 
+    rms += a[i*dimx+j]*a[i*dimx+j]; 
   // average
   rms /= dimx*dimy;
   return sqrt(rms);
 }
 
-/*  square root of entrys of an array */
-double* msqrt(double *M, int size) {
-  double *sqrtM = (double*) malloc(sizeof(double*)*size);
-  for (int i=0; i<size; i++)
-    sqrtM[i] = sqrt(M[i]);
-  return sqrtM;
-}
-
 /* take sqrt of elements of real matrix */
-/*
 double** msqrt(double **M, int dimx, int dimy) {
   double **sqrtM = (double **) malloc(sizeof(double*)*dimx);
   for (int i=0; i<dimx; i++)
@@ -161,7 +61,6 @@ double** msqrt(double **M, int dimx, int dimy) {
 
   return sqrtM;
 }
-*/
 
 void grid2d(double *X, double *Y, int dimx, int dimy, double *x, double *y) {
   int i,j;
@@ -272,7 +171,7 @@ void printcm_rowmaj(double complex *M, int dimx, int dimy)
 {
   for (int i=0; i<dimx; i++) {
     for (int j=0; j<dimy; j++)
-      printf(j != dimy-1 ? "%-6s\t" : "%-6s\n", cfs(M[i*dimy+j]));
+      printf(j != dimy-1 ? "%-6s\t" : "%-6s\n", cfs(M[i*dimx+j]));
   }
 }
 
@@ -298,83 +197,7 @@ void csq2d(double complex **k, int dimx, int dimy) {
       k[i][j] *= k[i][j];
 }
 
-
-/* creates dimx-by-dimy row-major array of noise */
-double* noise2d(double *k, int dimx, int dimy, double kmin, double kmax, int kpow, double rms_noise) {
-  int i, j;
-  double complex rms;  // TODO:  What function does rms_noise have? 
-  double *noise_return;
-  double complex *noise = (double complex *) fftw_malloc(sizeof(double complex) * dimx*dimy);
-  int ii, jj;
-  for (jj=1; jj<dimy; jj++) {                        // TODO: why is indexing starting at 1? 
-    for (ii=1; ii<dimx; ii++) { 
-      if ( (k[ii*dimy + jj] >= kmin) && (k[ii*dimy + jj] <=kmax)) {
-        noise[ii*dimy + jj] = cpow(M_E, 2*I*M_PI*((double) rand()/ (double) RAND_MAX)) /
-            pow(k[ii*dimy + jj],kpow);
-      }
-    }
-  }
-  noise_return = fft2d_c2r(noise, dimx, dimy);
-  rms = rms2d(noise_return, dimx, dimy); // TODO: rms2d takes rms of squared entries
-  for (i=0; i<dimx; i++)
-    for (j=0; j<dimy; j++)
-      noise_return[i*dimy+j] = noise_return[i*dimy+j] / rms * rms_noise;
-  return noise_return;
-}
-
-/* find velocity from vorticity via streamfunction */
-void update_velocity_via_streamfunc(int timestep) {
-  int i;
-  // fftw_free(vxw_x); 
-  // fftw_free(vxw_y);
-
-  psi = fft2d_r2c(wzq[timestep], NX, NY);
-  for (i=0; i<NX*NY; i++) 
-    psi[i] /= K2[i];
-
-  /*
-  tmp_cplx_arr = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
-  for (i=0; i<NX*NY; i++)
-    tmp_cplx_arr[i] = I * KY[i] * psi[i];
-
-  vx = fft2d_c2r(tmp_cplx_arr, NX, NY);
-  printf("vx:\n");
-  printrm_rowmaj(vx, NX, NY);
-  */
-  /*
-  for (i=0; i<NX*NY; i++)
-    tmp_cplx_arr[i] = -I * KX[i] * psi[i];
-  vy = fft2d_c2r(tmp_cplx_arr, NX, NY);
-  printf("vy:\n");
-  printrm_rowmaj(vy, NX, NY);
-  tmp_real_arr = (double*) malloc(sizeof(double)*NX*NY);
-  for (i=0; i<NX*NY; i++)
-    tmp_real_arr[i] = vx[i]*vx[i] + vy[i]*vy[i];
-  vxw_x = fft2d_r2c(tmp_real_arr, NX, NY);
-  for (i=0; i<NX*NY; i++) {
-    vxw_x[i] *= -0.5;
-    vxw_y[i] = I*KY[i]*vxw_x[i];
-    vxw_x[i] = I*KX[i]*vxw_x[i];
-    tmp_real_arr[i] = vy[i] * wzq[timestep][i] + 2.0 * (omega + shear);
-  }
-  //free(tmp_cplx_arr);
-  tmp_cplx_arr = fft2d_r2c(tmp_real_arr, NX, NY);
-  for (i=0; i<NX*NY; i++) {
-    vxw_x[i] += tmp_cplx_arr[i];
-    tmp_real_arr[i] = vx[i] * wzq[timestep][i] + 2.0 * omega;
-  } 
-  //free(tmp_cplx_arr);
-  tmp_cplx_arr = fft2d_r2c(tmp_real_arr, NX, NY);
-  for (i=0; i<NX*NY; i++)
-    vxw_y[i] -= tmp_cplx_arr[i];
-  //fftw_free(tmp_cplx_arr);
-  //free(tmp_real_arr);
-  */
-} 
-
-
 /* Initialize grid of random noise in Fourier space */
-/*
 // TODO:  row major problem with fftw
 // TODO: what is the type of the array that is passed to this function?
 double* noise2d(double **k, int dimx, int dimy, double kmin, double kmax, int kpow, double rms_noise) {
@@ -411,5 +234,63 @@ double* noise2d(double **k, int dimx, int dimy, double kmin, double kmax, int kp
       noise_return[i*dimx+j] = noise_return[i*dimx+j] / rms * rms_noise;
   return noise_return;
 }
+
+
+/* Variables---------------------------------------------------------------------
+dx, dy = grid cell dimensions
+x, y, kx, ky = intermediate variables for X,Y,KX,KY
+X,Y = physical coordinate mesh
+KX, KY = wave number mesh
+K2 = kx^2 + ky^2 for (kx,ky) in [KX,KY]
+hypvisc
+wzq : vorticity 
+rho : dust density
+-------------------------------------------------------------------------------*/
+/*
+double dx = LX/NX;
+double dy = LY/NY;
+double *x,*y,*kx,*ky;
+//double **X,**Y, **KX, **KY, **K2;
+double *X, *Y, *KX, *KY, *K2;
+double *hypvisc;
+double wzq[NT+1][NX*NY];
+double **rho;
+double *fac1;
+double complex *ipsiky, *negipsikx;
+double *vx;
+double *vy;
+double *V2;
+//double vxb[NX][NY];
+double *vxb;
+double **vx_plus_vxb;  // TODO: get rid of this
+double complex *psi; 
+double delx[NX][NY];
+double dely[NX][NY];
+double xi[NX][NY];
+double yi[NX][NY];  
+double **vx_buf;
+double vy_buf[NX+2*bufx][NY+2*bufy];
+double wz_buf[NX+2*bufx][NY+2*bufy];
+//double x_buf[NX+2*bufx][NY+2*bufy]; 
+double *x_buf;
+//double y_buf[nx+2*bufx][ny+2*bufy]; 
+double *y_buf;
+//double rho[NT+1][NX][NY];     
+double complex *vxw_x;
+double complex *vxw_y;
+double *temp_real;
+double complex *temp_complex;
+double complex nlxf[NX*NY];
+double complex nlyf[NX*NY];
+double complex hf[NX*NY];   
+double *dPdx; 
+double *dPdy; 
+double complex *qx;   
+double complex *qy;   
+double *divq; 
+double *crlq; 
+double rho_buf[NX+2*bufx][NY+2*bufy]; 
+double divq_buf[NX+2*bufx][NY+2*bufy];
+double crlq_buf[NX+2*bufx][NY+2*bufy];
+char buff[100];
 */
-#endif /* SLA_H */
