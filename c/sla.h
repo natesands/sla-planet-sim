@@ -69,13 +69,13 @@ double *hypvisc;
 double *vxb;
 double* wzq[NT+1];  //  wzq, rho both (NT+1) x (NX*NY) 2D grids
 double* rho[NT+1];
-double *fac1;
+double fac1[NX*NY];
 double *vx;
 double *vy;
 double *V2;
 double **vx_plus_vxb;  // TODO: get rid of this
-double complex *psi; 
-double complex *tmp_cplx_arr;
+fftw_complex *psi; 
+fftw_complex *tmp_cplx_arr;
 double *tmp_real_arr;
 double delx[NX][NY];
 double dely[NX][NY];
@@ -88,8 +88,13 @@ double wz_buf[NX+2*BUFX][NY+2*BUFY];
 double *x_buf;
 //double y_buf[nx+2*bufx][ny+2*bufy]; 
 double *y_buf;
-double complex *vxw_x = NULL;
-double complex *vxw_y = NULL;
+fftw_complex vxw_x[NX*NY];
+fftw_complex vxw_y[NX*NY];
+fftw_complex qx[NX*NY], qy[NX*NY];
+fftw_complex nlxf[NX*NY], nlyf[NX*NY];
+fftw_complex hf[NX*NY];
+double divq[NX*NY];
+double crlq[NX*NY];
 
 /* Functions-------------------------------------------------------------------
 grid2d:     initialize mesh grids -- equiv. to Matlab's ndgrid for d=2
@@ -117,8 +122,8 @@ fft2d:  Performs fast fourier transform real->freq and freq->real
 
 
 /* returns root mean squared of 2D array of complex doubles */
-double complex crms2d(double complex *a, int dimx, int dimy) {
-  double complex rms = 0;
+fftw_complex crms2d(fftw_complex *a, int dimx, int dimy) {
+  fftw_complex rms = 0;
   // sum square of each element
   for (int i=0; i<dimx; i++)
    for (int j=0; j<dimy; j++)
@@ -129,7 +134,7 @@ double complex crms2d(double complex *a, int dimx, int dimy) {
 }
 
 /* returns root mean squared of 2D array of doubles */
-double complex rms2d(double *a, int dimx, int dimy) {
+fftw_complex rms2d(double *a, int dimx, int dimy) {
   double rms = 0;
   // sum square of each element
   for (int i=0; i<dimx; i++)
@@ -259,7 +264,7 @@ void printrm_rowmaj(double *M, int dimx, int dimy)
 }
           
 /* print complex matrix*/
-void printcm(double complex **M, int dimx, int dimy)
+void printcm(fftw_complex **M, int dimx, int dimy)
 {
   for (int i=0; i<dimx; i++) {
     for (int j=0; j<dimy; j++)
@@ -268,7 +273,7 @@ void printcm(double complex **M, int dimx, int dimy)
 }
 
 /* print complex matrix in row major format*/
-void printcm_rowmaj(double complex *M, int dimx, int dimy)
+void printcm_rowmaj(fftw_complex *M, int dimx, int dimy)
 {
   for (int i=0; i<dimx; i++) {
     for (int j=0; j<dimy; j++)
@@ -277,14 +282,14 @@ void printcm_rowmaj(double complex *M, int dimx, int dimy)
 }
 
 /* mean of array of complex values */
-double complex cmean1D(double complex *k, int size) {
-  double complex sum = 0;
+fftw_complex cmean1D(fftw_complex *k, int size) {
+  fftw_complex sum = 0;
   for(int i=0; i<size; sum+=k[i++]);
   return sum / size;
 }
 /* mean of matrix of complex values */
-double complex cmean2d(double complex **k, int dimx,int dimy) {
-  double complex sum = 0;
+fftw_complex cmean2d(fftw_complex **k, int dimx,int dimy) {
+  fftw_complex sum = 0;
   for (int i=0; i<dimx; i++)
     sum += cmean1D(k[i],dimy);
   return sum / dimx;
@@ -292,7 +297,7 @@ double complex cmean2d(double complex **k, int dimx,int dimy) {
 
 /* element-wise square of 2D array of complex doubles */ 
 // TODO: modifies original array - don't use?
-void csq2d(double complex **k, int dimx, int dimy) {
+void csq2d(fftw_complex **k, int dimx, int dimy) {
   for (int i=0; i<dimx; i++)
     for (int j=0; j<dimy; j++)
       k[i][j] *= k[i][j];
@@ -302,9 +307,9 @@ void csq2d(double complex **k, int dimx, int dimy) {
 /* creates dimx-by-dimy row-major array of noise */
 double* noise2d(double *k, int dimx, int dimy, double kmin, double kmax, int kpow, double rms_noise) {
   int i, j;
-  double complex rms;  // TODO:  What function does rms_noise have? 
+  fftw_complex rms;  // TODO:  What function does rms_noise have? 
   double *noise_return;
-  double complex *noise = (double complex *) fftw_malloc(sizeof(double complex) * dimx*dimy);
+  fftw_complex *noise = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * dimx*dimy);
   int ii, jj;
   for (jj=1; jj<dimy; jj++) {                        // TODO: why is indexing starting at 1? 
     for (ii=1; ii<dimx; ii++) { 
@@ -325,91 +330,140 @@ double* noise2d(double *k, int dimx, int dimy, double kmin, double kmax, int kpo
 /* find velocity from vorticity via streamfunction */
 void update_velocity_via_streamfunc(int timestep) {
   int i;
-  // fftw_free(vxw_x); 
-  // fftw_free(vxw_y);
-
+  //fftw_free(vxw_x); 
+  //fftw_free(vxw_y);
+  fftw_complex *vxw_x_tmp, *vxw_y_tmp;
   psi = fft2d_r2c(wzq[timestep], NX, NY);
   for (i=0; i<NX*NY; i++) 
     psi[i] /= K2[i];
 
-  /*
-  tmp_cplx_arr = (double complex*) fftw_malloc(sizeof(double complex)*NX*NY);
+  
+  tmp_cplx_arr = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
   for (i=0; i<NX*NY; i++)
     tmp_cplx_arr[i] = I * KY[i] * psi[i];
 
   vx = fft2d_c2r(tmp_cplx_arr, NX, NY);
-  printf("vx:\n");
-  printrm_rowmaj(vx, NX, NY);
-  */
-  /*
+
   for (i=0; i<NX*NY; i++)
     tmp_cplx_arr[i] = -I * KX[i] * psi[i];
   vy = fft2d_c2r(tmp_cplx_arr, NX, NY);
-  printf("vy:\n");
-  printrm_rowmaj(vy, NX, NY);
+
   tmp_real_arr = (double*) malloc(sizeof(double)*NX*NY);
   for (i=0; i<NX*NY; i++)
     tmp_real_arr[i] = vx[i]*vx[i] + vy[i]*vy[i];
-  vxw_x = fft2d_r2c(tmp_real_arr, NX, NY);
+   
+  //vxw_x = fft2d_r2c(tmp_real_arr, NX, NY); 
+  vxw_x_tmp = fft2d_r2c(tmp_real_arr, NX, NY); 
+  for (i=0; i<NX*NY; i++)
+    vxw_x[i] = vxw_x_tmp[i];
+ // vxw_y = (fftw_complex*) fftw_malloc(sizeof(fftw_complex*) * NX * NY);  // TODO:  shouldn't need to reallocate each time
   for (i=0; i<NX*NY; i++) {
-    vxw_x[i] *= -0.5;
-    vxw_y[i] = I*KY[i]*vxw_x[i];
-    vxw_x[i] = I*KX[i]*vxw_x[i];
-    tmp_real_arr[i] = vy[i] * wzq[timestep][i] + 2.0 * (omega + shear);
+  vxw_x[i] *= -0.5;
+  vxw_y[i] = I*KY[i]*vxw_x[i];
+  vxw_x[i] = I*KX[i]*vxw_x[i];
+  tmp_real_arr[i] = vy[i] * (wzq[timestep][i] + 2.0 * (omega + shear));
   }
+
+  printf("tmp_real_arr:\n");
+  //printrm_rowmaj(tmp_real_arr, NX, NY);
+
   //free(tmp_cplx_arr);
   tmp_cplx_arr = fft2d_r2c(tmp_real_arr, NX, NY);
+  
   for (i=0; i<NX*NY; i++) {
     vxw_x[i] += tmp_cplx_arr[i];
-    tmp_real_arr[i] = vx[i] * wzq[timestep][i] + 2.0 * omega;
+    tmp_real_arr[i] = vx[i] * (wzq[timestep][i] + 2.0 * omega);
   } 
+  printf("tmp_real_arr:\n");
+  //printrm_rowmaj(tmp_real_arr, NX, NY);
+
+  printf("vxw_x:\n");
+  //printcm_rowmaj(vxw_x, NX, NY);
+  // OK tmp_real_arr, vxw_x
   //free(tmp_cplx_arr);
-  tmp_cplx_arr = fft2d_r2c(tmp_real_arr, NX, NY);
-  for (i=0; i<NX*NY; i++)
-    vxw_y[i] -= tmp_cplx_arr[i];
+  //tmp_cplx_arr = fft2d_r2c(tmp_real_arr, NX, NY);
+  //printf("tmp_cplx_arr:\n");
+  //printcm_rowmaj(tmp_cplx_arr, NX, NY);
+  //for (i=0; i<NX*NY; i++)
+  //  vxw_y[i] -= tmp_cplx_arr[i];
   //fftw_free(tmp_cplx_arr);
   //free(tmp_real_arr);
-  */
+
 } 
 
-
-/* Initialize grid of random noise in Fourier space */
-/*
-// TODO:  row major problem with fftw
-// TODO: what is the type of the array that is passed to this function?
-double* noise2d(double **k, int dimx, int dimy, double kmin, double kmax, int kpow, double rms_noise) {
-  int i, j;
- // TODO:  What function does rms_noise have? 
-  double complex rms;
-  //double *noise_return_flat = (double *) malloc(sizeof(double)*nx*ny);
-  double *noise_return;
-  //for (i=0; i<nx; i++)
-   // noise_return[i] = (double *) malloc(sizeof(double)*ny);
-  double complex *noise = (double complex *) fftw_malloc(sizeof(double complex) * dimx*dimy);
-  int ii, jj;
-  for (jj=1; jj<dimy; jj++) {                        // TODO: why is indexing starting at 1? 
-    for (ii=1; ii<dimx; ii++) { 
-      if ((k[ii][jj] >=kmin) && (k[ii][jj] <=kmax)) {
-        noise[ii*dimx + jj] = cpow(M_E, 2*I*M_PI*((double) rand()/ (double) RAND_MAX)) /
-            pow(k[ii][jj],kpow);
-      }
+void update_drift_vel_gas_P(int timestep) {
+  double* rho_frame = rho[timestep];
+  fftw_complex *i_kx_hf, *i_ky_hf, *tmp_complex, *qx_tmp, *qy_tmp;
+  double *dPdx, *dPdy, *tmp_real, *tmp_divq, *tmp_crlq;   
+  int i, j, k;
+  i_kx_hf = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
+  i_ky_hf = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
+  tmp_real = (double*) fftw_malloc(sizeof(double)*NX*NY);
+  tmp_complex= (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
+  for (i=0; i<NX; i++)
+    for (j=0; j<NY; j++) 
+      fac1[i*NY+j] = (rho_frame[i*NY+j] / rho0) / ((1.0 + rho_frame[i*NY+j] / rho0)*(1.0 + rho_frame[i*NY+j] / rho0)
+          + (2.0*omega*tau)*(2.0*omega*tau));    // fac1 off from matlab ~0.001
+  printf("fac1:\n");
+  printrm_rowmaj(fac1, NX, NY);
+  for (k=0; k < num_pressure_iter; k++) {
+    for (i=0; i<NX*NY; i++) {
+      nlxf[i] = vxw_x[i] + qx[i];
+      nlyf[i] = vxw_y[i] + qy[i];
+      hf[i] = -I*(KX[i] * nlxf[i] + KY[i] * nlyf[i]) / K[2];
+      i_kx_hf[i] = I*KX[i]*hf[i];
+      i_ky_hf[i] = I*KY[i]*hf[i];
+    }
+    dPdx = fft2d_c2r(i_kx_hf, NX, NY);
+    dPdy = fft2d_c2r(i_ky_hf, NX, NY);
+    for (i=0; i<NX*NY; i++)
+      dPdy += dPdR;
+    for (i=0; i<NX*NY; i++)
+      tmp_real[i] = fac1[i]*((1.0+rho_frame[i]/rho0)*dPdx[i] + 2.0*omega*tau*dPdy[i]);
+    qx_tmp = fft2d_r2c(tmp_real, NX, NY);
+    for (i=0; i<NX*NY; i++)
+      tmp_real[i] = fac1[i]*((1.0+rho_frame[i]/rho0)*dPdy[i] + 2.0*omega*tau*dPdx[i]);
+    qy_tmp = fft2d_r2c(tmp_real, NX, NY);
+    for (i=0; i<NX*NY; i++) {
+      qx[i] = qx_tmp[i];
+      qy[i] = qy_tmp[i];
     }
   }
-  
-  //noise_return_flat = fft2d_c2r(noise, nx, ny);
-  noise_return = fft2d_c2r(noise, dimx, dimy);
-//  for (i=0; i<nx; i++) {
-//    for(j=0; j<ny; j++) {
-//      noise_return[i][j] = noise_return_flat[nx*i + j];
-//    }
-//  }
+  for (i=0; i<NX*NY; i++)
+    tmp_complex[i] = I*(KX[i] * qx[i] + KY[i] * qy[i]);
+  tmp_divq = fft2d_c2r(tmp_complex, NX, NY);
+  for (i=0; i<NX*NY; i++)
+    divq[i] = dt * tmp_divq[i] * rho0 * tau;
+  for (i=0; i<NX*NY; i++)
+    tmp_complex[i] = I*(KX[i] * qy[i] - KY[i] * qx[i]);
+  tmp_crlq = fft2d_c2r(tmp_complex, NX, NY);
+  for (i=0; i<NX*NY; i++)
+    crlq[i] = dt * tmp_crlq[i];
 
-  rms = rms2d(noise_return, dimx, dimy); // TODO: rms2d takes rms of squared entries
-  // noise = noise/rms * rms_noise
-  for (i=0; i<dimx; i++)
-    for (j=0; j<dimy; j++)
-      noise_return[i*dimx+j] = noise_return[i*dimx+j] / rms * rms_noise;
-  return noise_return;
+  fftw_free(i_kx_hf);
+  fftw_free(i_ky_hf);
+  fftw_free(tmp_real);
+  fftw_free(tmp_complex);
+  fftw_free(dPdx);
+  fftw_free(dPdy);
+  fftw_free(qx_tmp);
+  fftw_free(qy_tmp);
+  fftw_free(tmp_divq);
+  fftw_free(tmp_crlq);
 }
+/*
+% compute gas pressure and dust drift velocity
+fac1 = (rho(:,:,tt)/rho0)./((1.0+rho(:,:,tt)/rho0).^2+(2.0*omega*tau)^2);
+for jj=1:num_pressure_iter
+    nlxf = vxw_x+qx;
+    nlyf = vxw_y+qy;
+    hf   = -1i*(kx.*nlxf+ky.*nlyf)./k2;
+    dPdx = fft2d(1i*kx.*hf,+2);
+    dPdy = fft2d(1i*ky.*hf,+2)+dPdR;
+    qx   = fft2d(fac1.*((1.0+rho(:,:,tt)/rho0).*dPdx+2.0*omega*tau*dPdy),-2);
+    qy   = fft2d(fac1.*((1.0+rho(:,:,tt)/rho0).*dPdy-2.0*omega*tau*dPdx),-2);
+end
+divq = dt*fft2d(1i*(kx.*qx+ky.*qy),+2)*(rho0*tau);
+crlq = dt*fft2d(1i*(kx.*qy-ky.*qx),+2);
 */
 #endif /* SLA_H */

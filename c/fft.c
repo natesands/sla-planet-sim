@@ -12,19 +12,19 @@
 #include "fft.h"
 
 /*******************************************************************************/
-double complex* fft2d_r2c(double *f, int dimx, int dimy) {
+fftw_complex* fft2d_r2c(double *f, int dimx, int dimy) {
 /********************************************************************************
 Performs FFT from 2D array of reals to array of complex values. Returns 
 pointer to new array. 
 ********************************************************************************/
   fftw_plan p;
   int i, j;
-  double complex *ff, *g;    // return array
-  ff = (double complex*) fftw_malloc(sizeof(double complex)*dimx*dimy); 
-  g = (double complex*) fftw_malloc(sizeof(double complex)*dimx*dimy); 
+  fftw_complex *ff, *g;    // return array
+  ff = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*dimx*dimy); 
+  g = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*dimx*dimy); 
 
   for (i=0; i<dimx*dimy; i++)    // copy f to ff
-    ff[i] = (double complex) f[i];
+    ff[i] = (fftw_complex) f[i];
 
   p = fftw_plan_dft_2d(dimx, dimy, ff, g, 
                        FFTW_FORWARD,
@@ -36,13 +36,19 @@ pointer to new array.
         g[dimy*i+j] = 0.0;
     } // end for j
   } // end for i
-  fftw_free(ff);
+  //fftw_free(ff);
   return g;
+  /*
+     STUB
+  fftw_complex *g = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*dimx*dimy);
+  for (int i=0; i<dimx*dimy; i++) g[i] = (double) i;;
+  return g;
+  */
 } //fft2d_r2c
 
 
 /*******************************************************************************/
-double* fft2d_c2r(double complex *f, int dimx, int dimy) {
+double* fft2d_c2r(fftw_complex *f, int dimx, int dimy) {
 /********************************************************************************
 Performs FFT from 2D array of complex values to array of reals. Returns 
 pointer to new array. 
@@ -53,12 +59,14 @@ pointer to new array.
   Free ff;
   return g;
 ********************************************************************************/
+/* f is copied to ff; ff is modified, then transformed to fff */
+/* return array */
+
   fftw_plan p;
   int i, j;
-  double complex *ff, *fff;  /* f is copied to ff; ff is modified, then transformed to fff */
-  double *g;    /* return array */
-  ff = (double complex*) fftw_malloc(sizeof(double complex)*dimx*dimy);
-  fff = (double complex*) fftw_malloc(sizeof(double complex)*dimx*dimy);
+  fftw_complex *ff, *fff;    double *g;
+  ff = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*dimx*dimy);
+  fff = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*dimx*dimy);
   g = (double *) fftw_malloc(sizeof(double)*dimx*dimy); 
 
   for (i=0; i<dimx; i++) {
@@ -73,5 +81,11 @@ pointer to new array.
   for (i=0; i<dimx*dimy; i++)
     g[i] = creal(fff[i]) / (double) (dimx*dimy);   // ff needs to be normalized
   return g;
+/*
+ * STUB  
+  double *g = (double *) malloc(sizeof(double)*dimx*dimy);
+  for (int i=0; i<dimx*dimy; i++) g[i] = (fftw_complex) i;
+  return g;
+  */
 } //fft2d_c2r
 

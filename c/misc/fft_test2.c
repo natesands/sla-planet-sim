@@ -7,8 +7,8 @@
 
 int main() {
   int dimx, dimy,i,j;
-  dimx=32;
-  dimy=16;
+  dimx=6;
+  dimy=4;
   fftw_plan p;
   double real_in[] = {0.7749, 0.3998, 0.9106, 0.1361, 
                0.8173, 0.2599, 0.1818, 0.8693, 
@@ -22,7 +22,7 @@ int main() {
   double *real_in2 = malloc(sizeof(double)*dimx*dimy);
   for (i=0; i<dimx*dimy; i++)
     real_in2[i] = real_in[i%24];
-  cmplx_out = fft2d_r2c(real_in2, dimx, dimy);
+  cmplx_out = fft2d_r2c(real_in, dimx, dimy);
 
 
   /* 
