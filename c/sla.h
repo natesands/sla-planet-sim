@@ -255,7 +255,7 @@ void printrm(double **M, int dimx, int dimy)
 }
 
 /* print real matrix in row major format */
-void printrm_rowmaj(double *M, int dimx, int dimy)
+void printrmat(double *M, int dimx, int dimy)
 {
   for (int i=0; i<dimx; i++) {
     for (int j=0; j<dimy; j++)
@@ -273,7 +273,7 @@ void printcm(fftw_complex **M, int dimx, int dimy)
 }
 
 /* print complex matrix in row major format*/
-void printcm_rowmaj(fftw_complex *M, int dimx, int dimy)
+void printcmat(fftw_complex *M, int dimx, int dimy)
 {
   for (int i=0; i<dimx; i++) {
     for (int j=0; j<dimy; j++)
@@ -365,7 +365,7 @@ void update_velocity_via_streamfunc(int timestep) {
   }
 
   printf("tmp_real_arr:\n");
-  //printrm_rowmaj(tmp_real_arr, NX, NY);
+  //printrmat(tmp_real_arr, NX, NY);
 
   //free(tmp_cplx_arr);
   tmp_cplx_arr = fft2d_r2c(tmp_real_arr, NX, NY);
@@ -375,22 +375,22 @@ void update_velocity_via_streamfunc(int timestep) {
     tmp_real_arr[i] = vx[i] * (wzq[timestep][i] + 2.0 * omega);
   } 
   printf("tmp_real_arr:\n");
-  //printrm_rowmaj(tmp_real_arr, NX, NY);
+  //printrmat(tmp_real_arr, NX, NY);
 
   printf("vxw_x:\n");
-  //printcm_rowmaj(vxw_x, NX, NY);
+  //printcmat(vxw_x, NX, NY);
   // OK tmp_real_arr, vxw_x
   //free(tmp_cplx_arr);
   //tmp_cplx_arr = fft2d_r2c(tmp_real_arr, NX, NY);
   //printf("tmp_cplx_arr:\n");
-  //printcm_rowmaj(tmp_cplx_arr, NX, NY);
+  //printcmat(tmp_cplx_arr, NX, NY);
   //for (i=0; i<NX*NY; i++)
   //  vxw_y[i] -= tmp_cplx_arr[i];
   //fftw_free(tmp_cplx_arr);
   //free(tmp_real_arr);
 
 } 
-
+/* updates qx, qy, divq, crlq */ 
 void update_drift_vel_gas_P(int timestep) {
   double* rho_frame = rho[timestep];
   fftw_complex *i_kx_hf, *i_ky_hf, *tmp_complex, *qx_tmp, *qy_tmp;
@@ -405,24 +405,24 @@ void update_drift_vel_gas_P(int timestep) {
       fac1[i*NY+j] = (rho_frame[i*NY+j] / rho0) / ((1.0 + rho_frame[i*NY+j] / rho0)*(1.0 + rho_frame[i*NY+j] / rho0)
           + (2.0*omega*tau)*(2.0*omega*tau));    // fac1 off from matlab ~0.001
   printf("fac1:\n");
-  printrm_rowmaj(fac1, NX, NY);
+  printrmat(fac1, NX, NY);
   for (k=0; k < num_pressure_iter; k++) {
     for (i=0; i<NX*NY; i++) {
       nlxf[i] = vxw_x[i] + qx[i];
       nlyf[i] = vxw_y[i] + qy[i];
-      hf[i] = -I*(KX[i] * nlxf[i] + KY[i] * nlyf[i]) / K[2];
+      hf[i] = -I*(KX[i] * nlxf[i] + KY[i] * nlyf[i]) / K2[i];
       i_kx_hf[i] = I*KX[i]*hf[i];
       i_ky_hf[i] = I*KY[i]*hf[i];
     }
     dPdx = fft2d_c2r(i_kx_hf, NX, NY);
     dPdy = fft2d_c2r(i_ky_hf, NX, NY);
     for (i=0; i<NX*NY; i++)
-      dPdy += dPdR;
+      dPdy[i] += dPdR;
     for (i=0; i<NX*NY; i++)
-      tmp_real[i] = fac1[i]*((1.0+rho_frame[i]/rho0)*dPdx[i] + 2.0*omega*tau*dPdy[i]);
+      tmp_real[i] = fac1[i]*( (1.0 + rho_frame[i] / rho0) * dPdx[i] + 2.0*omega*tau*dPdy[i]);
     qx_tmp = fft2d_r2c(tmp_real, NX, NY);
     for (i=0; i<NX*NY; i++)
-      tmp_real[i] = fac1[i]*((1.0+rho_frame[i]/rho0)*dPdy[i] + 2.0*omega*tau*dPdx[i]);
+      tmp_real[i] = fac1[i]*( (1.0 + rho_frame[i] / rho0) * dPdy[i] - 2.0 * omega * tau * dPdx[i]);
     qy_tmp = fft2d_r2c(tmp_real, NX, NY);
     for (i=0; i<NX*NY; i++) {
       qx[i] = qx_tmp[i];

@@ -53,23 +53,23 @@ int main() {
   K2[0] = 1.0E+64;;   // TODO:  this was done in MATLAB code to prevent division by zero?
   
   printf("X:\n");
- // printrm_rowmaj(X, NX, NY);
+ // printrmat(X, NX, NY);
   
   printf("Y:\n");
-  //printrm_rowmaj(Y, NX, NY);
+  //printrmat(Y, NX, NY);
   printf("KX:\n");
-  //printrm_rowmaj(KX,NX,NY);  
+  //printrmat(KX,NX,NY);  
   printf("KY:\n");
-  //printrm_rowmaj(KY,NX,NY);  
+  //printrmat(KY,NX,NY);  
   printf("K2:\n");
-  //printrm_rowmaj(K2,NX,NY);  
+  //printrmat(K2,NX,NY);  
 
 
   hypvisc = (double*) malloc(sizeof(double)*NX*NY);
   for (i=0; i<NX*NY; i++)
     hypvisc[i] = exp(-8.0*(pow(K2[i]/sq(M_PI/dx), hypviscpow/2)));
   printf("hypvisc:\n");
-  //printrm_rowmaj(hypvisc, NX, NY);
+  //printrmat(hypvisc, NX, NY);
   hypvisc[0] = 1.0;
 
   x_buf = add_buffer(X, NX, NY, bufx, bufy);
@@ -81,7 +81,7 @@ int main() {
   y_buf = add_buffer(Y, NX, NY, bufx, bufy);
 
   printf("x_buf:\n");
-  //printrm_rowmaj(x_buf, NX+2*bufx, NY+2*bufy);
+  //printrmat(x_buf, NX+2*bufx, NY+2*bufy);
  
   y_buf = add_buffer(Y, NX, NY, bufx, bufy);
   for (j=0; j < bufy; j++)
@@ -91,7 +91,7 @@ int main() {
     } 
 
   printf("y_buf:\n");
-  //printrm_rowmaj(y_buf, NX+2*bufx, NY+2*bufy);
+  //printrmat(y_buf, NX+2*bufx, NY+2*bufy);
 
   /* Initialize background shear */ 
   vxb = (double*) malloc(sizeof(double)*NX*NY);
@@ -99,7 +99,7 @@ int main() {
     vxb[i] = -shear * Y[i] * (0.5 * (tanh(8.0 * (Y[i] + 0.4*LY))-tanh(8.0* (Y[i] - 0.4*LY))));    // NB: shear=0 in MATLAB code
 
   printf("vxb:\n");
-  printrm_rowmaj(vxb, NX, NY);
+  printrmat(vxb, NX, NY);
   
   /* Initialize vorticity */
   wzq[0] = (double*) malloc(sizeof(double) * NX * NY);   // TODO: why is wzq[0] set to 0*x in the MATLAB code?
@@ -112,7 +112,7 @@ int main() {
     for (j=0; j < NY; j++)
       wzq[0][i*NY + j] = scalar_mult * X[i*NY+j];
   printf("wzq:\n");
-  printrm_rowmaj(wzq[0], NX, NY);
+  printrmat(wzq[0], NX, NY);
  
   /* initialize random dust density */
   rho[0]=noise2d(msqrt(K2,NX*NY), NX, NY, M_PI / dx / 64.0, M_PI / dx / 2.0, 1.0, 1.0);
@@ -120,33 +120,42 @@ int main() {
     rho[0][i] = 0.1 * (1.0 + .01*rho[0][i]);
 
   printf("rho t=0:\n");
-  printrm_rowmaj(rho[0], NX, NY);
+  printrmat(rho[0], NX, NY);
   /* find velocity from vorticity via streamfunction at t=0 */
   update_velocity_via_streamfunc(0);
+/* 
   printf("psi\n");
-  printcm_rowmaj(psi, NX, NY);
+  printcmat(psi, NX, NY);
 
   printf("vx:\n");
-  printrm_rowmaj(vx, NX, NY);
+  printrmat(vx, NX, NY);
 
   printf("vy:\n");
-  printrm_rowmaj(vy, NX, NY);
+  printrmat(vy, NX, NY);
   printf("vxw_x:\n");
-  printcm_rowmaj(vxw_x, NX, NY);
+  printcmat(vxw_x, NX, NY);
   printf("vxw_y:\n");
-  printcm_rowmaj(vxw_y, NX, NY);
-
+  printcmat(vxw_y, NX, NY);
+*/
 
   /* compute gas pressure and dust drift velocity */
  // qx = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
  // qy = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
- for (i=0; i<NX*NY; i++) { 
+ for (i=0; i<NX*NY; i++) {   // probably not necessary
    qx[i]=0.0; 
    qy[i]=0.0; 
  }
 
   update_drift_vel_gas_P(0);
 
+  printf("qx:\n");
+  printcmat(qx, NX, NY); 
+  printf("qy:\n");
+  printcmat(qy, NX, NY); 
+  printf("crlq:\n");
+  printrmat(crlq, NX, NY);
+  printf("divq:\n");
+  printrmat(divq, NX, NY);
   // TODO:  the values of the matrices are odd... (in MATLAB as well)
 
   /* compute gas pressure and dust drift velocity */
@@ -159,7 +168,7 @@ int main() {
           + (2.0*omega*tau)*(2.0*omega*tau));
  
   printf("fac1:\n"); 
-  printrm_rowmaj(fac1, NX, NY);
+  printrmat(fac1, NX, NY);
   fftw_complex *tmp_dPdx = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
   fftw_complex *tmp_dPdy = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
   double *tmp_dPdx_r = (double *) malloc(sizeof(double)*NX*NY);
@@ -221,13 +230,13 @@ int main() {
   fftw_free(tmp_divq);
   fftw_free(tmp_crlq);
   printf("qx:\n"); 
-  printcm_rowmaj(qx, NX, NY);
+  printcmat(qx, NX, NY);
   printf("qy:\n"); 
-  printcm_rowmaj(qy, NX, NY);
+  printcmat(qy, NX, NY);
   printf("divq:\n");
-  printrm_rowmaj(divq, NX, NY);
+  printrmat(divq, NX, NY);
   printf("crlq:\n");
-  printrm_rowmaj(crlq, NX, NY);
+  printrmat(crlq, NX, NY);
   */
   return 0;
 
