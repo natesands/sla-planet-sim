@@ -13,7 +13,10 @@ a Master's thesis by Wendy Crumrine.
 #include <math.h>
 #include <time.h>   // for random seed
 #include "fft.h"
-#include <string.h> // memset
+#include <string.h>    // memset
+#include <gsl/gsl_math.h>         // gsl used for interpolations 
+#include <gsl/gsl_interp2d.h>
+#include <gsl/gsl_spline2d.h>  
 
 /* Constants----------------------------------------------------------------------
 NX, NY = number of grid points in the X,Y directions
@@ -77,13 +80,13 @@ double **vx_plus_vxb;  // TODO: get rid of this
 fftw_complex *psi; 
 fftw_complex *tmp_cplx_arr;
 double *tmp_real_arr;
-double delx[NX][NY];
-double dely[NX][NY];
-double xi[NX][NY];
-double yi[NX][NY];  
-double **vx_buf;
-double vy_buf[NX+2*BUFX][NY+2*BUFY];
-double wz_buf[NX+2*BUFX][NY+2*BUFY];
+double delx[NX*NY];
+double dely[NX*NY];
+double xi[NX*NY];
+double yi[NX*NY];  
+double vx_buf[(NX+2*BUFX) * (NY+2*BUFY)];
+double vy_buf[(NX+2*BUFX) * (NY+2*BUFY)];
+double *wz_buf;
 //double x_buf[NX+2*BUFX][NY+2*BUFY]; 
 double *x_buf;
 //double y_buf[nx+2*bufx][ny+2*bufy]; 
@@ -118,8 +121,9 @@ add_buffer: pads Nx x Ny array by bufx and bufy, and tiles values. e.g.
 cfs:  Returns c string for printing complex numbers. 
 cmean1d / cmean2d:  mean of 1D/2D array of complex doubles
 fft2d:  Performs fast fourier transform real->freq and freq->real
-------------------------------------------------------------------------------*/
 
+------------------------------------------------------------------------------*/
+void interpolate_grid(double *target, double *xa, double *ya, double *za, double *xi, double *yi);
 
 /* returns root mean squared of 2D array of complex doubles */
 fftw_complex crms2d(fftw_complex *a, int dimx, int dimy) {
@@ -403,7 +407,7 @@ void update_drift_vel_gas_P(int timestep) {
   for (i=0; i<NX; i++)
     for (j=0; j<NY; j++) 
       fac1[i*NY+j] = (rho_frame[i*NY+j] / rho0) / ((1.0 + rho_frame[i*NY+j] / rho0)*(1.0 + rho_frame[i*NY+j] / rho0)
-          + (2.0*omega*tau)*(2.0*omega*tau));    // fac1 off from matlab ~0.001
+          + (2.0*omega*tau)*(2.0*omega*tau)); 
   printf("fac1:\n");
   printrmat(fac1, NX, NY);
   for (k=0; k < num_pressure_iter; k++) {
@@ -451,19 +455,118 @@ void update_drift_vel_gas_P(int timestep) {
   fftw_free(tmp_divq);
   fftw_free(tmp_crlq);
 }
-/*
-% compute gas pressure and dust drift velocity
-fac1 = (rho(:,:,tt)/rho0)./((1.0+rho(:,:,tt)/rho0).^2+(2.0*omega*tau)^2);
-for jj=1:num_pressure_iter
-    nlxf = vxw_x+qx;
-    nlyf = vxw_y+qy;
-    hf   = -1i*(kx.*nlxf+ky.*nlyf)./k2;
-    dPdx = fft2d(1i*kx.*hf,+2);
-    dPdy = fft2d(1i*ky.*hf,+2)+dPdR;
-    qx   = fft2d(fac1.*((1.0+rho(:,:,tt)/rho0).*dPdx+2.0*omega*tau*dPdy),-2);
-    qy   = fft2d(fac1.*((1.0+rho(:,:,tt)/rho0).*dPdy-2.0*omega*tau*dPdx),-2);
-end
-divq = dt*fft2d(1i*(kx.*qx+ky.*qy),+2)*(rho0*tau);
-crlq = dt*fft2d(1i*(kx.*qy-ky.*qx),+2);
-*/
+
+void add_real_mats(double *target, double *a, double *b, int dimx, int dimy) {
+  for (int i=0; i < dimx * dimy; i++)
+    target[i] = a[i] + b[i];
+}
+
+void subtract_real_mats(double *target, double *source_mat, double *minus_mat, int dimx, int dimy) {
+  for (int i=0; i < dimx * dimy; i++)
+    target[i] = source_mat[i] - minus_mat[i];
+}
+
+void real_mat_scalar_mult(double *target,  double *source, double sclr, int dimx, int dimy) {
+  for (int i=0; i < dimx * dimy; i++)
+    target[i] = source[i] * sclr;
+}
+
+
+void update_xi_yi() {
+
+  int i;
+  subtract_real_mats(xi, X, delx, NX, NY);
+  subtract_real_mats(yi, Y, dely, NX, NY);
+  
+  for (i=0; i < NX * NY; i++) {
+   if (xi[i] > LX / 2.0) 
+     xi[i] -= LX;
+   if (xi[i] < -LX / 2.0)
+     xi[i] += LX;
+   if (yi[i] > LY / 2.0)
+     yi[i] -= LY;
+   if (yi[i] < -LY / 2.0)
+     yi[i] += LY;
+  }
+}
+
+void iterate_displacements() {  
+  double *vx_vxb, *vx_buf_tmp, *vy_buf_tmp;;
+  int i;
+  
+  vx_vxb = (double *) fftw_malloc(sizeof(double) * NX * NY);;
+
+  add_real_mats(vx_vxb, vx, vxb, NX, NY);
+  vx_buf_tmp = add_buffer(vx_vxb, NX, NY, bufx, bufy);
+  vy_buf_tmp  = add_buffer(vy, NX, NY, bufx, bufy);
+
+  for (i=0; i < (NX + 2*bufx) * (NY + 2*bufy); i++) {
+    vx_buf[i] = vx_buf_tmp[i];
+    vy_buf[i] = vy_buf_tmp[i];
+  }
+
+  for (i=0; i < num_sl_disp_iter-1; i++) {
+    interpolate_grid(delx, x_buf, y_buf, vx_buf, xi, yi);
+    real_mat_scalar_mult(delx, delx, dt, NX, NY);      
+    printf("delx:\n");
+    printrmat(delx, NX, NY);
+    interpolate_grid(dely, x_buf, y_buf, vy_buf, xi, yi);
+    real_mat_scalar_mult(dely, dely, dt, NX, NY);      
+    printf("dely:\n");
+    printrmat(dely, NX, NY);
+  }
+
+  free(vx_vxb);
+  free(vx_buf_tmp);
+  free(vy_buf_tmp);
+}
+
+/* Interpolate 2D function f(x,y)=z using sample values (xa, ya, za).  Evaluate
+ * function at query points xi, yi and write to target.
+ *
+ * TODO:  add option for interpolation type.  Right now bicubic.
+ *
+ * target is NX x NY
+ * xa, ya, and za  are (NX + 2*bufx) x (NY + 2*bufy) 
+ * the x grid points are repeated in the colums of xa and in the rows of ya. 
+ * the query points xi, yi are NX x NY 
+ */
+void interpolate_grid(double *target, double *xa, double *ya, double *za, double *xi, double *yi) {
+  
+
+  size_t i, j;
+  size_t nx = NX + 2*bufx;  //  dimensions of xa, ya 
+  size_t ny = NY + 2*bufy;   
+  double xcol[nx];
+  double yrow[ny];
+  double *zza = malloc(nx * ny * sizeof(double));
+  const gsl_interp2d_type *T = gsl_interp2d_bicubic;
+ // const gsl_interp2d_type *T = gsl_interp2d_bilinear;
+  gsl_interp_accel *xacc = gsl_interp_accel_alloc();
+  gsl_interp_accel *yacc = gsl_interp_accel_alloc();
+  gsl_interp2d *bicubic = gsl_interp2d_alloc(T, nx, ny);
+
+  for (i=0; i < nx; i++)  {
+    xcol[i] = xa[i * ny];
+  }
+  printf("\n");
+  for (i=0; i < ny; i++) {
+    yrow[i] = ya[i];
+  }
+ 
+  for (i=0; i < nx; i++)
+   for (j=0; j < ny; j++)
+    //  gsl_interp2d_set(bicubic, zza, i, j, za[i*nx+j]);
+   // gsl_interp2d_set(bicubic, zza, i, j, za[j*nx+i]);
+    gsl_interp2d_set(bicubic, zza, i, j, za[i*ny+j]);
+   // gsl_interp2d_set(bicubic, zza, i, j, za[j*ny+i]);
+
+  gsl_interp2d_init(bicubic, xcol, yrow, zza, nx, ny);
+
+  for (i=0; i < NX; i++)
+    for (j=0; j < NY; j++)
+      target[i*NY + j] = gsl_interp2d_eval(bicubic, xcol, yrow, zza, xi[i*NY + j], 
+                                              yi[i*NY + j], xacc, yacc);
+
+}
 #endif /* SLA_H */

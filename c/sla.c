@@ -158,86 +158,13 @@ int main() {
   printrmat(divq, NX, NY);
   // TODO:  the values of the matrices are odd... (in MATLAB as well)
 
-  /* compute gas pressure and dust drift velocity */
-  /*
-  fac1 = (double *) malloc(sizeof(double)*NX*NY);
-  double* rho_frame = rho[0];
-  for (i=0; i<NX; i++)
-    for (j=0; j<NY; j++) 
-      fac1[i*NX+j] = (rho_frame[i*NX+j] / rho0) / ((1.0 + rho_frame[i*NX+j] / rho0)*(1.0 + rho_frame[i*NX+j] / rho0)
-          + (2.0*omega*tau)*(2.0*omega*tau));
- 
-  printf("fac1:\n"); 
-  printrmat(fac1, NX, NY);
-  fftw_complex *tmp_dPdx = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
-  fftw_complex *tmp_dPdy = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
-  double *tmp_dPdx_r = (double *) malloc(sizeof(double)*NX*NY);
-  double *tmp_dPdy_r = (double *) malloc(sizeof(double)*NX*NY);
-  fftw_complex *tmp_crlq = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
-  fftw_complex *tmp_divq = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
-  for (int k=0; k < num_pressure_iter; k++) {
-    for (i=0; i<NX; i++)
-      for(j=0; j<NY; j++) {
-        nlxf[i*NX+j] = vxw_x[i*NX+j] + (k==0 ? 0 : qx[i*NX+j]);
-        nlyf[i*NX+j] = vxw_y[i*NX+j] + (k==0 ? 0 : qy[i*NX+j]);
-        hf[i*NX+j] = -I*(KX[i][j]*nlxf[i*NX+j]+KY[i][j]*nlyf[i*NX+j])/K2[i][j];
-        tmp_dPdx[i*NX+j] = I*KX[i][j]*hf[i*NX+j];
-        tmp_dPdy[i*NX+j] = I*KY[i][j]*hf[i*NX+j];
-      }
-    dPdx = fft2d_c2r(tmp_dPdx, NX, NY);
-    dPdy = fft2d_c2r(tmp_dPdy, NX, NY);
-    for (i=0; i<NX; i++)
-      for(j=0; j<NY; j++)
-        dPdy[i*NX+j] += dPdR;
-    for (i=0; i<NX; i++)
-      for(j=0; j<NY; j++) {
-        tmp_dPdx_r[i*NX+j] = fac1[i*NX+j]*((1.0 + rho_frame[i*NX+j] / rho0)*dPdx[i*NX+j] + 2.0*omega*tau*dPdy[i*NX+j]);
-        tmp_dPdy_r[i*NX+j] = fac1[i*NX+j]*((1.0 + rho_frame[i*NX+j] / rho0)*dPdy[i*NX+j] - 2.0*omega*tau*dPdx[i*NX+j]);
-      }
-    fftw_free(qx);
-    fftw_free(qy);
-    qx = fft2d_r2c(tmp_dPdx_r, NX, NY);
-    qy = fft2d_r2c(tmp_dPdy_r, NX, NY);
-  }
-  for (i=0; i<NX; i++)
-    for (j=0; j<NY; j++) {
-      tmp_divq[i*NX+j] = I*(KX[i][j]*qx[i*NX+j] + KY[i][j]*qy[i*NX+j]);
-      tmp_crlq[i*NX+j] = I*(KX[i][j]*qy[i*NX+j] - KY[i][j]*qx[i*NX+j]);
-    }
-  divq = fft2d_c2r(tmp_divq, NX, NY);
-  crlq = fft2d_c2r(tmp_crlq, NY, NY);
-  for (i=0; i<NX; i++)
-    for (j=0; j<NY; j++) {
-      divq[i*NX+j] = dt * divq[i*NX+j]*rho0*tau;
-      crlq[i*NX+j] = dt * crlq[i*NX+j];
-    }
-  vx_plus_vxb = (double **) malloc(sizeof(double *)*NX);
-  for (i=0; i<NX; i++)
-    vx_plus_vxb[i] = (double *) malloc(sizeof(double)*NY);
-  for (i=0; i<NX; i++)
-    for (j=0; j<NY; j++)
-      vx_plus_vxb[i][j] = vx[i*NX+j] + vxb[i][j];
-  vx_buf = add_buffer(vx_plus_vxb, NX, NY, bufx, bufy);
-  printf("vx_buf:\n");
-  printrm(vx_plus_vxb,NX+2*bufx,NY+2*bufy);
+  /* initialize delx, dely, xi, yi */
+  real_mat_scalar_mult(delx, vx, dt, NX, NY);
+  real_mat_scalar_mult(dely, vy, dt, NX, NY);
+  update_xi_yi();
+  iterate_displacements();
 
-    
 
-  fftw_free(tmp_dPdx);
-  fftw_free(tmp_dPdy);
-  free(tmp_dPdx_r);
-  free(tmp_dPdy_r);
-  fftw_free(tmp_divq);
-  fftw_free(tmp_crlq);
-  printf("qx:\n"); 
-  printcmat(qx, NX, NY);
-  printf("qy:\n"); 
-  printcmat(qy, NX, NY);
-  printf("divq:\n");
-  printrmat(divq, NX, NY);
-  printf("crlq:\n");
-  printrmat(crlq, NX, NY);
-  */
   return 0;
 
 }
