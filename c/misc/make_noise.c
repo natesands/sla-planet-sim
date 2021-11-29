@@ -5,13 +5,13 @@
 #include <math.h>
 #include <time.h>
 
-#define DIMX 10
-#define DIMY 10
+#define DIMX 256
+#define DIMY 256
 
 int main() {
   double arr[DIMX*DIMY];
   FILE *outFile;
-  outFile = fopen("randarray.txt","w");
+  outFile = fopen("real_noise.txt","w");
 
   srand(time(NULL));
   for (int i = 0; i < DIMX*DIMY; i++) 
