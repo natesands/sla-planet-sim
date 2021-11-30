@@ -25,11 +25,11 @@ NT = number of time steps
 BUFX, BUFY = size of buffer space for 2d arrays
 --------------------------------------------------------------------------------*/
 
-#define NX 32  // TODO: NX, NY reset to 256
-#define NY 16 
+#define NX 256  // TODO: NX, NY reset to 256
+#define NY 256 
 #define LX 4.0
 #define LY 4.0
-#define NT 4096
+#define NT 4
 #define BUFX (NX/16)
 #define BUFY (NY/16)
 
@@ -84,9 +84,10 @@ double delx[NX*NY];
 double dely[NX*NY];
 double xi[NX*NY];
 double yi[NX*NY];  
+double xi2[NX*NY];
+double yi2[NX*NY];
 double vx_buf[(NX+2*BUFX) * (NY+2*BUFY)];
 double vy_buf[(NX+2*BUFX) * (NY+2*BUFY)];
-double *wz_buf;
 //double x_buf[NX+2*BUFX][NY+2*BUFY]; 
 double *x_buf;
 //double y_buf[nx+2*bufx][ny+2*bufy]; 
@@ -124,6 +125,9 @@ fft2d:  Performs fast fourier transform real->freq and freq->real
 
 ------------------------------------------------------------------------------*/
 void interpolate_grid(double *target, double *xa, double *ya, double *za, double *xi, double *yi);
+void add_real_mats(double *target, double *a, double *b, int dimx, int dimy);
+void subtract_real_mats(double *target, double *source_mat, double *minus_mat, int dimx, int dimy);
+void real_mat_scalar_mult(double *target,  double *source, double sclr, int dimx, int dimy);
 
 /* returns root mean squared of 2D array of complex doubles */
 fftw_complex crms2d(fftw_complex *a, int dimx, int dimy) {
@@ -368,7 +372,7 @@ void update_velocity_via_streamfunc(int timestep) {
   tmp_real_arr[i] = vy[i] * (wzq[timestep][i] + 2.0 * (omega + shear));
   }
 
-  printf("tmp_real_arr:\n");
+  //printf("tmp_real_arr:\n");
   //printrmat(tmp_real_arr, NX, NY);
 
   //free(tmp_cplx_arr);
@@ -378,10 +382,10 @@ void update_velocity_via_streamfunc(int timestep) {
     vxw_x[i] += tmp_cplx_arr[i];
     tmp_real_arr[i] = vx[i] * (wzq[timestep][i] + 2.0 * omega);
   } 
-  printf("tmp_real_arr:\n");
+  //printf("tmp_real_arr:\n");
   //printrmat(tmp_real_arr, NX, NY);
 
-  printf("vxw_x:\n");
+  //printf("vxw_x:\n");
   //printcmat(vxw_x, NX, NY);
   // OK tmp_real_arr, vxw_x
   //free(tmp_cplx_arr);
@@ -408,8 +412,6 @@ void update_drift_vel_gas_P(int timestep) {
     for (j=0; j<NY; j++) 
       fac1[i*NY+j] = (rho_frame[i*NY+j] / rho0) / ((1.0 + rho_frame[i*NY+j] / rho0)*(1.0 + rho_frame[i*NY+j] / rho0)
           + (2.0*omega*tau)*(2.0*omega*tau)); 
-  printf("fac1:\n");
-  printrmat(fac1, NX, NY);
   for (k=0; k < num_pressure_iter; k++) {
     for (i=0; i<NX*NY; i++) {
       nlxf[i] = vxw_x[i] + qx[i];
@@ -490,6 +492,24 @@ void update_xi_yi() {
   }
 }
 
+void update_xi2_yi2() {
+  int i;
+  real_mat_scalar_mult(xi2, delx, 2.0, NX, NY);
+  subtract_real_mats(xi2, X, xi2, NX, NY);
+  real_mat_scalar_mult(yi2, dely, 2.0, NX, NY);
+  subtract_real_mats(yi2, Y, yi2, NX, NY);
+
+  for (i=0; i < NX * NY; i++) {
+   if (xi2[i] > LX / 2.0) 
+     xi2[i] -= LX;
+   if (xi2[i] < -LX / 2.0)
+     xi2[i] += LX;
+   if (yi2[i] > LY / 2.0)
+     yi2[i] -= LY;
+   if (yi2[i] < -LY / 2.0)
+     yi2[i] += LY;
+  }
+}
 void iterate_displacements() {  
   double *vx_vxb, *vx_buf_tmp, *vy_buf_tmp;;
   int i;
@@ -508,14 +528,12 @@ void iterate_displacements() {
   for (i=0; i < num_sl_disp_iter-1; i++) {
     interpolate_grid(delx, x_buf, y_buf, vx_buf, xi, yi);
     real_mat_scalar_mult(delx, delx, dt, NX, NY);      
-    printf("delx:\n");
-    printrmat(delx, NX, NY);
+
     interpolate_grid(dely, x_buf, y_buf, vy_buf, xi, yi);
     real_mat_scalar_mult(dely, dely, dt, NX, NY);      
-    printf("dely:\n");
-    printrmat(dely, NX, NY);
-  }
 
+  }
+  update_xi_yi();
   free(vx_vxb);
   free(vx_buf_tmp);
   free(vy_buf_tmp);
@@ -532,7 +550,8 @@ void iterate_displacements() {
  * the query points xi, yi are NX x NY 
  */
 void interpolate_grid(double *target, double *xa, double *ya, double *za, double *xi, double *yi) {
-  
+ // printf("target (wzq_1):\n");
+ // printrmat(target, NX, NY); 
 
   size_t i, j;
   size_t nx = NX + 2*bufx;  //  dimensions of xa, ya 
@@ -549,7 +568,6 @@ void interpolate_grid(double *target, double *xa, double *ya, double *za, double
   for (i=0; i < nx; i++)  {
     xcol[i] = xa[i * ny];
   }
-  printf("\n");
   for (i=0; i < ny; i++) {
     yrow[i] = ya[i];
   }
@@ -559,7 +577,7 @@ void interpolate_grid(double *target, double *xa, double *ya, double *za, double
     //  gsl_interp2d_set(bicubic, zza, i, j, za[i*nx+j]);
    // gsl_interp2d_set(bicubic, zza, i, j, za[j*nx+i]);
     gsl_interp2d_set(bicubic, zza, i, j, za[i*ny+j]);
-   // gsl_interp2d_set(bicubic, zza, i, j, za[j*ny+i]);
+  //gsl_interp2d_set(bicubic, zza, i, j, za[j*ny+i]);
 
   gsl_interp2d_init(bicubic, xcol, yrow, zza, nx, ny);
 
@@ -567,6 +585,63 @@ void interpolate_grid(double *target, double *xa, double *ya, double *za, double
     for (j=0; j < NY; j++)
       target[i*NY + j] = gsl_interp2d_eval(bicubic, xcol, yrow, zza, xi[i*NY + j], 
                                               yi[i*NY + j], xacc, yacc);
-
 }
+void wzq_advect_step(int timestep) {
+  int i;
+  fftw_complex *tmp_wzq_cmplx;
+  double *wz_buf, *crlq_buf, *tmp_wzq_real, *interp1, *interp2;
+  
+  wz_buf = add_buffer(wzq[timestep-1], NX, NY, bufx, bufy);
+  crlq_buf = add_buffer(crlq, NX, NY, bufx, bufy);
+  wzq[timestep+1] = (double*) fftw_malloc(sizeof(double) * NX * NY);  
+  interp1 = (double*) fftw_malloc(sizeof(double) * NX * NY);
+  interpolate_grid(interp1, x_buf, y_buf, wz_buf, xi2, yi2);
+  interp2 = (double*) fftw_malloc(sizeof(double) * NX * NY);
+  interpolate_grid(interp2, x_buf, y_buf, crlq_buf, xi, yi);
+  real_mat_scalar_mult(interp2, interp2, 2.0, NX, NY);
+  add_real_mats(interp1, interp1, interp2, NX, NY);
+  tmp_wzq_cmplx = fft2d_r2c(interp1, NX, NY);
+  for (i=0; i < NX * NY; i++)
+    tmp_wzq_cmplx[i] *= hypvisc[i];
+  tmp_wzq_real = fft2d_c2r(tmp_wzq_cmplx, NX, NY);
+  for (i=0; i < NX * NY; i++)
+    wzq[timestep+1][i] = tmp_wzq_real[i];
+
+  fftw_free(wz_buf);
+  fftw_free(crlq_buf);
+  fftw_free(tmp_wzq_cmplx);
+  fftw_free(tmp_wzq_real);
+  fftw_free(interp1);
+  fftw_free(interp2);
+}
+
+void rho_advect_step(int timestep) {
+  int i;
+  fftw_complex *tmp_rho_cmplx;
+  double *rho_buf, *divq_buf, *tmp_rho_real, *interp1, *interp2;
+  
+  rho_buf = add_buffer(rho[timestep-1], NX, NY, bufx, bufy);
+  divq_buf = add_buffer(divq, NX, NY, bufx, bufy);
+  rho[timestep+1] = (double*) fftw_malloc(sizeof(double) * NX * NY);
+  interp1 = (double*) fftw_malloc(sizeof(double) * NX * NY);
+  interpolate_grid(interp1, x_buf, y_buf, rho_buf, xi2, yi2);
+  interp2 = (double*) fftw_malloc(sizeof(double) * NX * NY);
+  interpolate_grid(interp2, x_buf, y_buf, divq_buf, xi, yi);
+  real_mat_scalar_mult(interp2, interp2, 2.0, NX, NY);
+  subtract_real_mats(interp1, interp1, interp2, NX, NY);
+  tmp_rho_cmplx = fft2d_r2c(interp1, NX, NY);
+  for (i=0; i < NX * NY; i++)
+    tmp_rho_cmplx[i] *= hypvisc[i];
+  tmp_rho_real = fft2d_c2r(tmp_rho_cmplx, NX, NY);
+  for (i=0; i < NX * NY; i++)
+    rho[timestep+1][i] = tmp_rho_real[i];
+
+  fftw_free(rho_buf);
+  fftw_free(divq_buf);
+  fftw_free(tmp_rho_cmplx);
+  fftw_free(tmp_rho_real);
+  fftw_free(interp1);
+  fftw_free(interp2);
+}
+
 #endif /* SLA_H */

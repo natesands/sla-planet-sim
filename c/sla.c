@@ -5,9 +5,7 @@ SIMULATING THE BIRTH OF PLANETS: A SPECTRAL SEMI-LAGRANGIAN HYDRODYNAMIC APPROAC
 a Master's thesis by Wendy Crumrine.
 
 TODOS:  
--- put everything in row major
--- get rid of i=0's
--- 
+-- malloc -> fftw_malloc
 --------------------------------------------------------------------------------*/
 #include "sla.h"
 #include <stdio.h>
@@ -52,23 +50,21 @@ int main() {
     K2[i] = KX[i]*KX[i] + KY[i]*KY[i];
   K2[0] = 1.0E+64;;   // TODO:  this was done in MATLAB code to prevent division by zero?
   
-  printf("X:\n");
+  //printf("X:\n");
  // printrmat(X, NX, NY);
-  
-  printf("Y:\n");
+  //printf("Y:\n");
   //printrmat(Y, NX, NY);
-  printf("KX:\n");
+  //printf("KX:\n");
   //printrmat(KX,NX,NY);  
-  printf("KY:\n");
+  //printf("KY:\n");
   //printrmat(KY,NX,NY);  
-  printf("K2:\n");
+  //printf("K2:\n");
   //printrmat(K2,NX,NY);  
-
 
   hypvisc = (double*) malloc(sizeof(double)*NX*NY);
   for (i=0; i<NX*NY; i++)
     hypvisc[i] = exp(-8.0*(pow(K2[i]/sq(M_PI/dx), hypviscpow/2)));
-  printf("hypvisc:\n");
+  //printf("hypvisc:\n");
   //printrmat(hypvisc, NX, NY);
   hypvisc[0] = 1.0;
 
@@ -80,7 +76,7 @@ int main() {
     }
   y_buf = add_buffer(Y, NX, NY, bufx, bufy);
 
-  printf("x_buf:\n");
+  //printf("x_buf:\n");
   //printrmat(x_buf, NX+2*bufx, NY+2*bufy);
  
   y_buf = add_buffer(Y, NX, NY, bufx, bufy);
@@ -90,7 +86,7 @@ int main() {
       y_buf[i*(NY+2*bufy) + NY+bufy+j] += LY;;
     } 
 
-  printf("y_buf:\n");
+  //printf("y_buf:\n");
   //printrmat(y_buf, NX+2*bufx, NY+2*bufy);
 
   /* Initialize background shear */ 
@@ -123,7 +119,7 @@ int main() {
   printrmat(rho[0], NX, NY);
   /* find velocity from vorticity via streamfunction at t=0 */
   update_velocity_via_streamfunc(0);
-/* 
+ 
   printf("psi\n");
   printcmat(psi, NX, NY);
 
@@ -136,7 +132,6 @@ int main() {
   printcmat(vxw_x, NX, NY);
   printf("vxw_y:\n");
   printcmat(vxw_y, NX, NY);
-*/
 
   /* compute gas pressure and dust drift velocity */
  // qx = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
@@ -158,13 +153,84 @@ int main() {
   printrmat(divq, NX, NY);
   // TODO:  the values of the matrices are odd... (in MATLAB as well)
 
-  /* initialize delx, dely, xi, yi */
+  /* initialize delx, dely, xi, yi, update displacements */
   real_mat_scalar_mult(delx, vx, dt, NX, NY);
   real_mat_scalar_mult(dely, vy, dt, NX, NY);
   update_xi_yi();
   iterate_displacements();
+  printf("delx:\n");
+  printrmat(delx, NX, NY);
+  printf("dely:\n");
+  printrmat(dely, NX, NY);
+  /* initial advect forward step for wzq... */
 
+  fftw_complex *tmp_wzq_cmplx;
+  double *wz_buf, *tmp_wzq_real;
+  wz_buf = add_buffer(wzq[0], NX, NY, bufx, bufy);
+  printf("wz_buf 0:\n");
+  printrmat(wz_buf, NX + 2*bufx, NY + 2*bufy);
+  wzq[1] = (double*) fftw_malloc(sizeof(double) * NX * NY);  
+  interpolate_grid(wzq[1], x_buf, y_buf, wz_buf, xi, yi);
+  printf("interp wzq:\n");
+  printrmat(wzq[1], NX, NY);
+  add_real_mats(wzq[1], wzq[1], crlq, NX, NY);
+  tmp_wzq_cmplx = fft2d_r2c(wzq[1], NX, NY);
+  for (i=0; i < NX * NY; i++)
+    tmp_wzq_cmplx[i] *= hypvisc[i];
+  tmp_wzq_real = fft2d_c2r(tmp_wzq_cmplx, NX, NY);
+  for (i=0; i < NX * NY; i++)
+    wzq[1][i] = tmp_wzq_real[i];
+  fftw_free(tmp_wzq_cmplx);
+  fftw_free(tmp_wzq_real);
+  fftw_free(wz_buf);
+  printf("wzq %d\n", 1);
+  printrmat(wzq[1], NX, NY);
 
+  /* ...and rho. */
+  fftw_complex *tmp_rho_cmplx;
+  double *rho_buf, *tmp_rho_real;
+  rho_buf = add_buffer(rho[0], NX, NY, bufx, bufy);
+  printf("rho_buf:\n");
+  printrmat(rho_buf, NX + 2*bufx, NY + 2*bufy);
+  rho[1] = (double*) fftw_malloc(sizeof(double) * NX * NY);
+  interpolate_grid(rho[1], x_buf, y_buf, rho_buf, xi, yi);
+  printf("interp rho:\n");
+  printrmat(rho[1], NX, NY);
+  subtract_real_mats(rho[1], rho[1], divq, NX, NY);
+  tmp_rho_cmplx = fft2d_r2c(rho[1], NX, NY);
+  for (i=0; i < NX * NY; i++)
+    tmp_rho_cmplx[i] *= hypvisc[i];
+  tmp_rho_real = fft2d_c2r(tmp_rho_cmplx, NX, NY);
+  for (i=0; i < NX * NY; i++)
+    rho[1][i] = tmp_rho_real[i];
+  fftw_free(tmp_rho_cmplx);
+  fftw_free(tmp_rho_real);
+  fftw_free(rho_buf);
+  printf("rho %d\n", 1);
+  printrmat(rho[1], NX, NY);
+ 
+
+  /* Main loop */ /*starting t=1*/
+  for (int timestep = 1; timestep < NT; timestep++) {
+    printf("T: %d\n", timestep);
+    update_velocity_via_streamfunc(timestep);
+    printf("vx %d:\n", timestep);
+    printrmat(vx, NX, NY);
+    printf("vy %d:\n", timestep);
+    printrmat(vy, NX, NY);
+    update_drift_vel_gas_P(timestep);
+    iterate_displacements();
+    update_xi2_yi2();
+    wzq_advect_step(timestep);
+    rho_advect_step(timestep);
+
+    printf("wzq %d\n", timestep);
+    printrmat(wzq[timestep], NX, NY);
+    printf("rho %d\n", timestep);
+    printrmat(rho[timestep], NX, NY);
+
+  }
+  
   return 0;
 
 }
