@@ -11,3 +11,9 @@ General questions:
 -- Is there any room in the model to introduce gravitational effects (other than from the star) when dust reaches critical density?
 -- How do we deal with periodic boundary conditions?  (This is a basic question addressed in molecular dynamics simulations and there must be a lot of literature on it.)
 
+
+TODO:
+-- Fix Z's malloc invalid size unsorted error
+-- set up profiling 
+-- 
+

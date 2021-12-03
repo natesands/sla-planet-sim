@@ -2,7 +2,7 @@
 % This version includes background shear and dust as a second fluid.
 % Dust can drift with respect to gas with terminal velocity.
 % This version has full two-way coupling between gas and dust.
-
+profile on 
 Nx            = 256;
 Ny            = 256;
 Lx            = 4.0;
@@ -86,7 +86,7 @@ vxb  = -shear*y.*(0.5*(tanh(8.0*(y+0.4*Ly))-tanh(8.0*(y-0.4*Ly))));
 wzq(:,:,1) = 0*x;
 
 % initialize dust density
-rho(:,:,1) = 0.1*(1.0+0.01*noise2d(sqrt(k2),pi/dx/64,pi/dx/2,1,1));
+rho(:,:,1) = 0.1*(1.0+0.01*noise2d(sqrt(k2),pi/dx/64,pi/dx/2,1,1))
 
 % find velocity from vorticity via streamfunction
 psi = fft2d(wzq(:,:,1),-2)./k2;
@@ -109,7 +109,7 @@ for jj=1:num_pressure_iter
     qx   = fft2d(fac1.*((1.0+rho(:,:,1)/rho0).*dPdx+2.0*omega*tau*dPdy),-2);
     qy   = fft2d(fac1.*((1.0+rho(:,:,1)/rho0).*dPdy-2.0*omega*tau*dPdx),-2);
 end
-divq = dt*fft2d(1i*(kx.*qx+ky.*qy),+2)*(rho0*tau);
+divq = dt*fft2d(1i*(kx.*qx+ky.*qy),+2)*(rho0*tau)
 crlq = dt*fft2d(1i*(kx.*qy-ky.*qx),+2);
 
 % iterate to find displacements
@@ -196,10 +196,10 @@ wzq(:,:,tt+1) = fft2d(hypvisc.*fft2d(interpn(x_buf,y_buf,wz_buf,xi2,yi2,interp_m
 rho(:,:,tt+1) = fft2d(hypvisc.*fft2d(interpn(x_buf,y_buf,rho_buf,xi2,yi2,interp_method2) - 2.0*interpn(x_buf,y_buf,divq_buf,xi,yi,interp_method2),-2),+2);
 end
 
-save('rho_005.mat', 'rho', '-v7.3')
-save('wzq_005.mat', 'wzq', '-v7.3')
+%save('rho_005.mat', 'rho', '-v7.3')
+%save('wzq_005.mat', 'wzq', '-v7.3')
 
-
+profile viewer
 
 function [g]=fft2d(f,dir)
 % If dir<0: real physical space     --> complex frequency space

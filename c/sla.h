@@ -25,11 +25,11 @@ NT = number of time steps
 BUFX, BUFY = size of buffer space for 2d arrays
 --------------------------------------------------------------------------------*/
 
-#define NX 256  // TODO: NX, NY reset to 256
-#define NY 256 
+#define NX 256 // TODO: NX, NY reset to 256
+#define NY 256
 #define LX 4.0
 #define LY 4.0
-#define NT 4
+#define NT 300 
 #define BUFX (NX/16)
 #define BUFY (NY/16)
 
@@ -41,7 +41,7 @@ BUFX, BUFY = size of buffer space for 2d arrays
 
 double rho0 = 1.0;
 double omega = 1.0;
-double shear = -1.5*1;  // set to zero in orig implementation
+double shear = -1.5*.2;  // set to zero in orig implementation
 double dPdR = -0.10;
 double tau = 0.005;
 double dt = 1.0/8.0;
@@ -70,8 +70,11 @@ double *x,*y,*kx,*ky;
 double *X, *Y, *KX, *KY, *K2;
 double *hypvisc;
 double *vxb;
-double* wzq[NT+1];  //  wzq, rho both (NT+1) x (NX*NY) 2D grids
-double* rho[NT+1];
+//double wzq[NT+1][NX*NY];  //  wzq, rho both (NT+1) x (NX*NY) 2D grids
+//double* rho[NT+1];
+//double rho[NT+1][NX*NY];
+double rho[5][NX*NY];
+double wzq[5][NX*NY];
 double fac1[NX*NY];
 double *vx;
 double *vy;
@@ -263,14 +266,19 @@ void printrm(double **M, int dimx, int dimy)
 }
 
 /* print real matrix in row major format */
-void printrmat(double *M, int dimx, int dimy)
+void printrmat_(double *M, int dimx, int dimy)
 {
   for (int i=0; i<dimx; i++) {
     for (int j=0; j<dimy; j++)
       printf(j != dimy-1 ? "%-6lf\t" : "%-6lf\n", M[i*dimy +j]);
   }
 }
-          
+
+void printrmat(double *M, int dimx, int dimy) {
+  for (int i=0; i < dimx*dimy; i++)
+    printf(i == dimx*dimy -1 ? "%f\n" : "%f ", M[i]);
+}
+
 /* print complex matrix*/
 void printcm(fftw_complex **M, int dimx, int dimy)
 {
@@ -341,7 +349,7 @@ void update_velocity_via_streamfunc(int timestep) {
   //fftw_free(vxw_x); 
   //fftw_free(vxw_y);
   fftw_complex *vxw_x_tmp, *vxw_y_tmp;
-  psi = fft2d_r2c(wzq[timestep], NX, NY);
+  psi = fft2d_r2c(wzq[timestep % 5], NX, NY);
   for (i=0; i<NX*NY; i++) 
     psi[i] /= K2[i];
 
@@ -369,7 +377,7 @@ void update_velocity_via_streamfunc(int timestep) {
   vxw_x[i] *= -0.5;
   vxw_y[i] = I*KY[i]*vxw_x[i];
   vxw_x[i] = I*KX[i]*vxw_x[i];
-  tmp_real_arr[i] = vy[i] * (wzq[timestep][i] + 2.0 * (omega + shear));
+  tmp_real_arr[i] = vy[i] * (wzq[timestep % 5][i] + 2.0 * (omega + shear));
   }
 
   //printf("tmp_real_arr:\n");
@@ -380,7 +388,7 @@ void update_velocity_via_streamfunc(int timestep) {
   
   for (i=0; i<NX*NY; i++) {
     vxw_x[i] += tmp_cplx_arr[i];
-    tmp_real_arr[i] = vx[i] * (wzq[timestep][i] + 2.0 * omega);
+    tmp_real_arr[i] = vx[i] * (wzq[timestep % 5][i] + 2.0 * omega);
   } 
   //printf("tmp_real_arr:\n");
   //printrmat(tmp_real_arr, NX, NY);
@@ -400,7 +408,7 @@ void update_velocity_via_streamfunc(int timestep) {
 } 
 /* updates qx, qy, divq, crlq */ 
 void update_drift_vel_gas_P(int timestep) {
-  double* rho_frame = rho[timestep];
+  //double* rho_frame = rho[timestep];
   fftw_complex *i_kx_hf, *i_ky_hf, *tmp_complex, *qx_tmp, *qy_tmp;
   double *dPdx, *dPdy, *tmp_real, *tmp_divq, *tmp_crlq;   
   int i, j, k;
@@ -410,7 +418,7 @@ void update_drift_vel_gas_P(int timestep) {
   tmp_complex= (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*NX*NY);
   for (i=0; i<NX; i++)
     for (j=0; j<NY; j++) 
-      fac1[i*NY+j] = (rho_frame[i*NY+j] / rho0) / ((1.0 + rho_frame[i*NY+j] / rho0)*(1.0 + rho_frame[i*NY+j] / rho0)
+      fac1[i*NY+j] = (rho[timestep % 5][i*NY+j] / rho0) / ((1.0 + rho[timestep % 5][i*NY+j] / rho0)*(1.0 + rho[timestep % 5][i*NY+j] / rho0)
           + (2.0*omega*tau)*(2.0*omega*tau)); 
   for (k=0; k < num_pressure_iter; k++) {
     for (i=0; i<NX*NY; i++) {
@@ -425,10 +433,10 @@ void update_drift_vel_gas_P(int timestep) {
     for (i=0; i<NX*NY; i++)
       dPdy[i] += dPdR;
     for (i=0; i<NX*NY; i++)
-      tmp_real[i] = fac1[i]*( (1.0 + rho_frame[i] / rho0) * dPdx[i] + 2.0*omega*tau*dPdy[i]);
+      tmp_real[i] = fac1[i]*( (1.0 + rho[timestep % 5][i] / rho0) * dPdx[i] + 2.0*omega*tau*dPdy[i]);
     qx_tmp = fft2d_r2c(tmp_real, NX, NY);
     for (i=0; i<NX*NY; i++)
-      tmp_real[i] = fac1[i]*( (1.0 + rho_frame[i] / rho0) * dPdy[i] - 2.0 * omega * tau * dPdx[i]);
+      tmp_real[i] = fac1[i]*( (1.0 + rho[timestep % 5][i] / rho0) * dPdy[i] - 2.0 * omega * tau * dPdx[i]);
     qy_tmp = fft2d_r2c(tmp_real, NX, NY);
     for (i=0; i<NX*NY; i++) {
       qx[i] = qx_tmp[i];
@@ -591,9 +599,9 @@ void wzq_advect_step(int timestep) {
   fftw_complex *tmp_wzq_cmplx;
   double *wz_buf, *crlq_buf, *tmp_wzq_real, *interp1, *interp2;
   
-  wz_buf = add_buffer(wzq[timestep-1], NX, NY, bufx, bufy);
+  wz_buf = add_buffer(wzq[(timestep-1) % 5], NX, NY, bufx, bufy);
   crlq_buf = add_buffer(crlq, NX, NY, bufx, bufy);
-  wzq[timestep+1] = (double*) fftw_malloc(sizeof(double) * NX * NY);  
+  //wzq[timestep+1] = (double*) fftw_malloc(sizeof(double) * NX * NY);  
   interp1 = (double*) fftw_malloc(sizeof(double) * NX * NY);
   interpolate_grid(interp1, x_buf, y_buf, wz_buf, xi2, yi2);
   interp2 = (double*) fftw_malloc(sizeof(double) * NX * NY);
@@ -605,7 +613,7 @@ void wzq_advect_step(int timestep) {
     tmp_wzq_cmplx[i] *= hypvisc[i];
   tmp_wzq_real = fft2d_c2r(tmp_wzq_cmplx, NX, NY);
   for (i=0; i < NX * NY; i++)
-    wzq[timestep+1][i] = tmp_wzq_real[i];
+    wzq[(timestep+1) % 5][i] = tmp_wzq_real[i];
 
   fftw_free(wz_buf);
   fftw_free(crlq_buf);
@@ -620,9 +628,9 @@ void rho_advect_step(int timestep) {
   fftw_complex *tmp_rho_cmplx;
   double *rho_buf, *divq_buf, *tmp_rho_real, *interp1, *interp2;
   
-  rho_buf = add_buffer(rho[timestep-1], NX, NY, bufx, bufy);
+  rho_buf = add_buffer(rho[(timestep-1) % 5], NX, NY, bufx, bufy);
   divq_buf = add_buffer(divq, NX, NY, bufx, bufy);
-  rho[timestep+1] = (double*) fftw_malloc(sizeof(double) * NX * NY);
+  //rho[timestep+1] = (double*) fftw_malloc(sizeof(double) * NX * NY);
   interp1 = (double*) fftw_malloc(sizeof(double) * NX * NY);
   interpolate_grid(interp1, x_buf, y_buf, rho_buf, xi2, yi2);
   interp2 = (double*) fftw_malloc(sizeof(double) * NX * NY);
@@ -634,7 +642,7 @@ void rho_advect_step(int timestep) {
     tmp_rho_cmplx[i] *= hypvisc[i];
   tmp_rho_real = fft2d_c2r(tmp_rho_cmplx, NX, NY);
   for (i=0; i < NX * NY; i++)
-    rho[timestep+1][i] = tmp_rho_real[i];
+    rho[(timestep+1) % 5][i] = tmp_rho_real[i];
 
   fftw_free(rho_buf);
   fftw_free(divq_buf);
