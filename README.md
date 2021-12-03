@@ -28,9 +28,9 @@ In this project we address the so-called "meter-sized gap problem" by modeling g
 ## Installation
 **CAVEAT COMPILER** : This implementation currently has a bad memory leak (easy fix, but time is short).
 
-The code requires installation of `fftw3` (Fastest Fourier Transform in the West) for FFTs and `gsl` (GNU scientific library) for interpolation.   It can be compiled within the `c` directory using `gcc -o sla sla.c fft.c -lfftw3 -lgsl -lm`.
+The code requires installation of fftw3 (Fastest Fourier Transform in the West) for FFTs and gsl (GNU scientific library) for interpolation.   It can be compiled within the `c` directory using `gcc -o sla sla.c fft.c -lfftw3 -lgsl -lm`.
 
-To set the box size and number of time steps, adjust values of `NX`, 'NY', and 'NT' in the macro definitions in `sla.h`.
+To set the box size and number of time steps, adjust values of NX, NY, and NT in the macro definitions in `sla.h`.
 
 The compiled program currently prints out a line of NX x NY floating points representing the grids value of rho (dust density) in row-major order.
 
