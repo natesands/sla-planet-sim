@@ -22,17 +22,22 @@ In this project we address the so-called "meter-sized gap problem" by modeling g
 
 |![](images/time-lapse-shear.gif)|
 |:--:| 
-| Current simulation with addition of background shear. |
+| Current simulation using C port which adds background shear. |
 
 
 ## Installation
+**CAVEAT COMPILER** : This implementation currently has a bad memory leak (easy fix, but time is short).
 
-
+The code requires installation of `fftw3` (Fastest Fourier Transform in the West) for FFTs and `gsl` (GNU scientific library) for interpolation.   It can be compiled within the `c` directory using `gcc -o sla sla.c fft.c -lfftw3 -lgsl -lm`.
 ## Getting started
 
 jasldfkjdsjfk
 
 ## TODOs
-
+*  Fix memory leak.
+*  Profile code.
+*  Parallelize DFTs and interpolations.
+*  Explain discrepancies between c port model and MATLAB model.
+*  
 fft.h / fft.c - Fast fourier transform functions based on FFTW3. 
 sla.h / sla.c - Variable declarations and function defintions. 
