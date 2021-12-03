@@ -9,7 +9,7 @@ a Master's thesis by Wendy Crumrine. Code ported to C from MATLAB for paralleliz
 [Getting started](#getting-started) •
 [Installation](#installation) •
 [Profile](#profile) •
-[TODOs](#todos) •
+[TODOs](#todos) 
 
 
 ## Introduction
@@ -22,7 +22,7 @@ In this project we address the so-called "meter-sized gap problem" by modeling g
 
 |![](images/time-lapse-shear.gif)|
 |:--:| 
-| Current simulation using C port which adds background shear. |
+| Current simulation using C port adding background shear. |
 
 
 ## Installation
