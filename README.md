@@ -36,7 +36,8 @@ The compiled program currently prints out a line of NX x NY floating points repr
 
 
 
-##Profile
+## Profile
+(Coming soon)
 
 ## TODOs
 *  Fix memory leak.
