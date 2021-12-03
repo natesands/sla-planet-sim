@@ -44,6 +44,3 @@ The compiled program currently prints out a line of NX x NY floating points repr
 *  Parallelize DFTs and interpolations.
 *  Install on CARC discovery cluster
 *  Explain discrepancies between c port model and MATLAB model.
-*  
-fft.h / fft.c - Fast fourier transform functions based on FFTW3. 
-sla.h / sla.c - Variable declarations and function defintions. 
