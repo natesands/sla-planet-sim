@@ -34,7 +34,10 @@ To set the box size and number of time steps, adjust values of NX, NY, and NT in
 
 The compiled program currently prints out a line of NX x NY floating points representing the grids value of rho (dust density) in row-major order.
 
-
+On Discover, first run 
+```
+module load gcc/8.3.0 openmpi/4.0.2 fftw/3.3.8-dp
+```
 
 ## Profile
 (Coming soon)

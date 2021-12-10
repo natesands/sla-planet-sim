@@ -16,11 +16,10 @@ https://www.fftw.org/fftw3_doc/Multi_002dthreaded-FFTW.html
 -------------------------------------------------------------------------------*/
 
 #include <complex.h>
-#include <fftw3.h>
-#include <mpi.h>
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <fftw3-mpi.h>
 
 #define DIMX 256
 #define DIMY 256
@@ -29,28 +28,47 @@ char *cfs(fftw_complex c);
 char buff[100];
 int main(int argc, char *argv[]) 
 {
-    MPI_Init(&argc, &argv);
+  int rank;
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  fftw_mpi_init();
   FILE *real_in, *fout;
   fftw_plan p;
-  fftw_complex *cmplx_out, *noise;
+  fftw_complex *cmplx_out, *noise, *data;
   double fp;
-  int i;
-  noise = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)* DIMX * DIMY);
-  cmplx_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * DIMX * DIMY);
-  real_in = fopen("real_noise.txt", "r"); 
-  for (i=0; i < DIMX * DIMY; i++) {
-    fscanf(real_in, "%lf", &fp);
-    noise[i] = fp;
+  int i,j;
+  ptrdiff_t alloc_local, local_n0, local_0_start
+ 
+
+
+  if (rank == 0){
+    real_in = fopen("real_noise.txt", "r"); 
+    for (i=0; i < DIMX * DIMY; i++) {
+      fscanf(real_in, "%lf", &fp);
+      data[i] = fp;
+      fclose(real_in);
+    }
   }
-  fclose(real_in);
+
+  MPI_Bcast(data, DIMX * DIMY, MPI_DOUBLE_COMPLEX, 0, MPI_COMM_WORLD);
+
+  alloc_local = fftw_mpi_local_size_2d(DIMX, DIMY, MPI_COMM_WORLD,
+                                         &local_n0, &local_0_start);
+  noise = fftw_alloc_complex(alloc_local);
+  MPI_Barrier(MPI_COMM_WORLD);
+  for (i = 0; i < local_n0; ++i) for (j = 0; j < DIMY; ++j)
+        noise[i*DIMY + j] = data[i*DIMY + j];
+  
 
 //  for (i=0; i < DIMX * DIMY; i++)
 //    printf("%f ", creal(noise[i]))
 
-  p = fftw_plan_dft_2d(DIMX, DIMY, noise, cmplx_out, FFTW_FORWARD, FFTW_ESTIMATE);
+  p = fftw_mpi_plan_dft_2d(DIMX, DIMY, noise, cmplx_out, MPI_COMM_WORLD, FFTW_FORWARD, FFTW_ESTIMATE);
   fftw_execute(p);
 
+  MPI_Finalize();
 
+  
   fout = fopen("complex_noise.txt", "w");
 
 //  for (i=0; i < DIMX * DIMY ; i++)
