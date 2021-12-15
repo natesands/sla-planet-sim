@@ -78,24 +78,12 @@ int main(int argc, char **argv)
     /* receive requests for work from workers and send them rows */
     for (i = 1; i < numprocs; i++) {
       MPI_Recv(&worker_rows, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-      worker = status.MPI_SOURCE;
-      worker_0_start = status.MPI_TAG;
+      worker = status.MPI_SOURCE;        
+      worker_0_start = status.MPI_TAG;    /* worker's starting row # */
       printf("worker %d requested %d rows starting at index %d\n", worker, 
           worker_rows, worker_0_start);
-      //buf_ptr = (fftw_complex *) malloc(sizeof(fftw_complex)*worker_rows*N1);
-      for (j=0; j < worker_rows * N1; j++) {
-        buf[j] = cmplx_in[worker_0_start*N0+j];
-        //buf_ptr[i] = cmplx_in[worker_0_start*N0 + i];
-      }
-      printf("sending worker %d:\n", worker);
-      for (j=0; j < worker_rows * N1; j++)
-        printf("%.3f+%.3fi\n", creal(buf[j]), cimag(buf[j]));
-      MPI_Send(buf, worker_rows*N1, MPI_C_DOUBLE_COMPLEX, worker, worker,
+      MPI_Send(&cmplx_in[worker_0_start*N0], worker_rows*N1, MPI_C_DOUBLE_COMPLEX, worker, worker,
                MPI_COMM_WORLD);
-      
-    //  for (i=0; i < 5; i++)
-    //    printf("%.1f+%.1fi\n", creal(buf_ptr[i]), cimag(buf_ptr[i]));
-      // fftw_free(buf_ptr);
     }
   }
   /* worker */
