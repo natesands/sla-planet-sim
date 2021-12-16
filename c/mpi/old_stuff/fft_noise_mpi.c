@@ -21,15 +21,15 @@ https://www.fftw.org/fftw3_doc/Multi_002dthreaded-FFTW.html
 #include <fftw3-mpi.h>
 #include <stdlib.h>
 
-#define N0 8
-#define N1 8
+#define N0 4
+#define N1 4
 
 char *cfs(fftw_complex c);
 char buff[100];
 int main(int argc, char **argv) 
 {
 
-  //fftw_plan plan;
+  fftw_plan plan;
   fftw_complex *mydata, *noise;
   double fp;
   int myid, manager, numprocs;
@@ -49,7 +49,7 @@ int main(int argc, char **argv)
     FILE *fout;                 /* file to write output of dft */
     cmplx_in = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)* N0 * N1);
     cmplx_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N0 * N1);
-    noise = fopen("noise.txt", "r");   /* read noise from file */
+    noise = fopen("noise_small.txt", "r");   /* read noise from file */
     for (i=0; i < N0 * N1; i++) {
       fscanf(noise, "%lf", &fp);
       cmplx_in[i] = (fftw_complex) fp;
@@ -97,8 +97,14 @@ int main(int argc, char **argv)
     printf("worker %d received %zu elements from manager\n", myid, status._ucount);
     for (j=0; j < local_n0*N1; j++)
       printf("%.3f+%.3fi\n", creal(mydata[j]), cimag(mydata[j]));
+
+    /* create plan for in-place forward DFT */
+    //plan = fftw_mpi_plan_dft_2d(N0, N1, mydata, mydata, MPI_COMM_WORLD,
+                                FFTW_FORWARD, FFTW_ESTIMATE);
+    //fftw_execute(plan);
+
   }
- // fftw_destroy_plan(plan);
+  fftw_destroy_plan(plan);
   MPI_Finalize();
   return 0;
 }
