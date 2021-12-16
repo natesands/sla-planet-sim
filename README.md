@@ -37,7 +37,7 @@ The compiled program currently prints out a line of NX x NY floating points repr
 
 
 ## Parallelization
-* We are exploring the use of FFTW3's native MPI interface to provide parallelization.   The folder `mpi` contains a test program `fftw_mpi_example.c` which parallelizes a single 2D transform of a 256 x 256 grid (time domain -> frequency domain) using the manager/worker paradigm.  It can be compiled using `mpicc -o fftw_mpi_example fftw_mpi_example.c -lmpi -lfftw3 -lfftw3_mpi -lm`.  
+We are exploring the use of FFTW3's native MPI interface to provide parallelization.   The folder `mpi` contains a test program `fftw_mpi_example.c` which parallelizes a single 2D transform of a 256 x 256 grid (time domain -> frequency domain) using the manager/worker paradigm.  It can be compiled using `mpicc -o fftw_mpi_example fftw_mpi_example.c -lmpi -lfftw3 -lfftw3_mpi -lm`.  
 
 Compiling on the Discovery cluster requires loading the relevant packages first:  
 ```
