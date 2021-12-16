@@ -43,7 +43,9 @@ Compiling on the Discovery cluster requires loading the relevant packages first:
 ```
 module load gcc/8.3.0 openmpi/4.0.2 fftw/3.3.8-dp
 ```
-So far, the speed up has been negligible.  The the execution time for a single transform takes approximately 2.0e-02 seconds, using 1, 2, 4 or 8 cores.
+For this toy program, the speed up has been negligible.  The the execution time for a single transform takes approximately 2.0e-02 seconds, using 1, 2, 4 or 8 cores.  We need to explore how effective MPI will be once we integrate it into the main program.
+
+Besides FFTs, the next targets for parallelization are the interpolations being performed by `gsl` and the basic linear algebra operations utilized by the program.
 
 ## Profile
 (Coming soon)
