@@ -5,7 +5,7 @@ import matplotlib.animation as animation
 import matplotlib.cm as cm
 
 
-with open('rho_test2.txt', 'r') as f:
+with open('256_256_1000_no_shear.txt', 'r') as f:
     dat = f.readlines()
 
 fig = plt.figure()

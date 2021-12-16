@@ -17,7 +17,6 @@ https://www.fftw.org/fftw3_doc/Multi_002dthreaded-FFTW.html
 
 #include <complex.h>
 #include <fftw3.h>
-#include <mpi.h>
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -29,7 +28,6 @@ char *cfs(fftw_complex c);
 char buff[100];
 int main(int argc, char *argv[]) 
 {
-    MPI_Init(&argc, &argv);
   FILE *real_in, *fout;
   fftw_plan p;
   fftw_complex *cmplx_out, *noise;
@@ -53,8 +51,8 @@ int main(int argc, char *argv[])
 
   fout = fopen("complex_noise.txt", "w");
 
-//  for (i=0; i < DIMX * DIMY ; i++)
-//    printf("%s ", cfs(cmplx_out[i]))
+  for (i=0; i < DIMX * DIMY ; i++)
+    fprintf(fout, "%s ", cfs(cmplx_out[i]));
 
   fclose(fout);
   return 0;

@@ -29,7 +29,7 @@ BUFX, BUFY = size of buffer space for 2d arrays
 #define NY 256
 #define LX 4.0
 #define LY 4.0
-#define NT 300 
+#define NT 1000
 #define BUFX (NX/16)
 #define BUFY (NY/16)
 
@@ -41,7 +41,8 @@ BUFX, BUFY = size of buffer space for 2d arrays
 
 double rho0 = 1.0;
 double omega = 1.0;
-double shear = -1.5*.2;  // set to zero in orig implementation
+// double shear = -1.5*.2;  // set to zero in orig implementation
+double shear = -1.5*0;  // set to zero in orig implementation
 double dPdR = -0.10;
 double tau = 0.005;
 double dt = 1.0/8.0;

@@ -1,10 +1,7 @@
 /*-------------------------------------------------------------------------------- 
 Toy program to test parallelize FFTW3's 2d DFT, real -> complex.  
 Must compile with linker flags gcc test1d.c -lfftw3 -lm 
-Will read in file "real_noise.txt" containing 256 * 256 doubles 
-representing a 2D grid and execute DFT.  Output is stored in array 
-cmplx_out.  The file "complex_noise.txt" contains the expected
-output.
+Will read required doubles from file "noise.txt" containing 256 * 256 doubles.
 
 Change N0, N1 arrays to test smaller grids.  Uncomment lines
 to print input/output.
@@ -24,15 +21,15 @@ https://www.fftw.org/fftw3_doc/Multi_002dthreaded-FFTW.html
 #include <fftw3-mpi.h>
 #include <stdlib.h>
 
-#define N0 4
-#define N1 4
+#define N0 8
+#define N1 8
 
 char *cfs(fftw_complex c);
 char buff[100];
 int main(int argc, char **argv) 
 {
 
-  fftw_plan plan;
+  //fftw_plan plan;
   fftw_complex *mydata, *noise;
   double fp;
   int myid, manager, numprocs;
@@ -52,14 +49,14 @@ int main(int argc, char **argv)
     FILE *fout;                 /* file to write output of dft */
     cmplx_in = (fftw_complex *) fftw_malloc(sizeof(fftw_complex)* N0 * N1);
     cmplx_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N0 * N1);
-    noise = fopen("noise_small.txt", "r");   /* read noise from file */
+    noise = fopen("noise.txt", "r");   /* read noise from file */
     for (i=0; i < N0 * N1; i++) {
       fscanf(noise, "%lf", &fp);
       cmplx_in[i] = (fftw_complex) fp;
     }
 
     fclose(noise);
-    
+    printf("data:\n"); 
     for (i=0; i < N0*N1; i++)
       printf("%.3f+%.3fi\n", creal(cmplx_in[i]), cimag(cmplx_in[i]));
 
@@ -82,7 +79,7 @@ int main(int argc, char **argv)
       worker_0_start = status.MPI_TAG;    /* worker's starting row # */
       printf("worker %d requested %d rows starting at index %d\n", worker, 
           worker_rows, worker_0_start);
-      MPI_Send(&cmplx_in[worker_0_start*N0], worker_rows*N1, MPI_C_DOUBLE_COMPLEX, worker, worker,
+      MPI_Send(&cmplx_in[worker_0_start*N1], worker_rows*N1, MPI_C_DOUBLE_COMPLEX, worker, worker,
                MPI_COMM_WORLD);
     }
   }
@@ -101,33 +98,10 @@ int main(int argc, char **argv)
     for (j=0; j < local_n0*N1; j++)
       printf("%.3f+%.3fi\n", creal(mydata[j]), cimag(mydata[j]));
   }
-  fftw_destroy_plan(plan);
+ // fftw_destroy_plan(plan);
   MPI_Finalize();
   return 0;
 }
-
-
-
-  /* broadcast 
-
-  alloc_local = fftw_mpi_local_size_2d(N0, N1, MPI_COMM_WORLD, &local_n0,
-                                       &local_0_start);
-  plan = fftw_mpi_plan_dft_2d(N0, N1, data, data, MPI_COMM_WORLD,
-                              FFTW_FORWARD, FFTW_ESTIMATE);
-
-  printf("myid = %d, local_n0 = %li, local_0_start = %li\n", myid, local_n0, local_0_start);
-
-//  p = fftw_plan_dft_2d(N0, N1, noise, cmplx_out, FFTW_FORWARD, FFTW_ESTIMATE);
-//  fftw_execute(p);
-//
-//
-//  fout = fopen("complex_noise.txt", "w");
-//
-//  for (i=0; i < N0 * N1 ; i++)
-//    fprintf(fout, "%s ", cfs(cmplx_out[i]));
-//
-//  fclose(fout);
-*/  
 
 
 /* complex format string for printing complex numbers*/
