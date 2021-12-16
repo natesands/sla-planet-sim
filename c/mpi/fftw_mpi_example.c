@@ -69,6 +69,7 @@ int main(int argc, char **argv)
 {
     fftw_plan plan;
     fftw_complex *data;
+    double cpu1, cpu2;
     int myid, numprocs, manager = 0, worker_done, begin = 0, rows_completed, chunk_size;
     ptrdiff_t alloc_local, local_n0, local_0_start, i, j;
 
@@ -92,6 +93,7 @@ int main(int argc, char **argv)
 
     /* Manager */
     if (myid == manager)  {
+      cpu1 = MPI_Wtime();
 
       /* load data from file into array dft_in*/ 
       fftw_complex *cbuf = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * chunk_size);
@@ -123,6 +125,8 @@ int main(int argc, char **argv)
         for (j = 0; j < chunk_size; j++)
           dft_out[i*chunk_size + j] = cbuf[j];
       } 
+      cpu2 = MPI_Wtime();
+      printf("Execution time (s) = %le\n", cpu2-cpu1);
 
       /* write output array to file */
       write_output("noise_out.txt", N0, N1);    
