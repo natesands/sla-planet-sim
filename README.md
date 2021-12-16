@@ -8,6 +8,7 @@ a Master's thesis by Wendy Crumrine. Code ported to C from MATLAB for paralleliz
 [Introduction](#introduction) •
 [Getting started](#getting-started) •
 [Installation](#installation) •
+[Parallelization](#parallelization) •
 [Profile](#profile) •
 [TODOs](#todos) 
 
@@ -38,7 +39,8 @@ On Discover, first run
 ```
 module load gcc/8.3.0 openmpi/4.0.2 fftw/3.3.8-dp
 ```
-
+## Parallelization
+* FFTW3 provides MPI support in the header `fftw3-mpi.h`.  
 ## Profile
 (Coming soon)
 
