@@ -54,8 +54,6 @@ void get_data(fftw_complex *arr, ptrdiff_t dimx, ptrdiff_t dimy,
   printf("start : %td, rows: %td\n", local_0_start, local_n0);
   for (i = 0; i < local_n0 * dimy; i++) {
     arr[i] = dft_in[local_0_start * dimy + i];
-    printf("dft_in: %s \n", cfs(dft_in[local_0_start*dimy + i]));
-    printf("arr: %s \n", cfs(arr[i]));
   }
 }
 
@@ -98,9 +96,9 @@ int main(int argc, char **argv)
       /* load data from file into array dft_in*/ 
       fftw_complex *cbuf = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * chunk_size);
       load_data("noise.txt", N0, N1);
-      printf("data in: \n");
-      for (i=0; i < N0 * N1; i++)
-        printf("%.3f+%.3fi\n", creal(dft_in[i]), cimag(dft_in[i]));
+  //    printf("data in: \n");
+  //    for (i=0; i < N0 * N1; i++)
+  //      printf("%.3f+%.3fi\n", creal(dft_in[i]), cimag(dft_in[i]));
       
       /* copy first chunk to data array */
       for (i = 0; i < local_n0 * N1; i++) 
@@ -136,8 +134,6 @@ int main(int argc, char **argv)
     else {
       MPI_Recv(data, chunk_size, MPI_C_DOUBLE_COMPLEX, manager, MPI_ANY_TAG,
                MPI_COMM_WORLD, &status); 
-      for (i=0; i < local_n0 * N1; i++)
-        printf("%.3f+%.3fi\n", creal(data[i]), cimag(data[i]));
 
       /* compute transform in-place */
       fftw_execute(plan);
