@@ -27,7 +27,7 @@ In this project we address the so-called "meter-sized gap problem" by modeling g
 
 
 ## Installation
-**CAVEAT COMPILER** : This implementation currently has a bad memory leak (easy fix, but time is short).
+**CAVEAT COMPILER** : This implementation currently has a bad memory leak (easy fix when time allows).
 
 The code requires installation of fftw3 (Fastest Fourier Transform in the West) for FFTs and gsl (GNU scientific library) for interpolation.   It can be compiled within the `c` directory using `gcc -o sla sla.c fft.c -lfftw3 -lgsl -lm`.
 
@@ -35,12 +35,16 @@ To set the box size and number of time steps, adjust values of NX, NY, and NT in
 
 The compiled program currently prints out a line of NX x NY floating points representing the grids value of rho (dust density) in row-major order.
 
-On Discover, first run 
+
+## Parallelization
+* We are exploring the use of FFTW3's native MPI interface to provide parallelization.   The folder `mpi` contains a test program `fftw_mpi_example.c` which parallelizes a single 2D transform of a 256 x 256 grid (time domain -> frequency domain) using the manager/worker paradigm.  It can be compiled using `mpicc -o fftw_mpi_example fftw_mpi_example.c -lmpi -lfftw3 -lfftw3_mpi -lm`.  
+
+Compiling on the Discovery cluster requires loading the relevant packages first:  
 ```
 module load gcc/8.3.0 openmpi/4.0.2 fftw/3.3.8-dp
 ```
-## Parallelization
-* FFTW3 provides MPI support in the header `fftw3-mpi.h`.  
+So far, the speed up has been negligible.  The the execution time for a single transform takes approximately 2.0e-02 seconds, using 1, 2, 4 or 8 cores.
+
 ## Profile
 (Coming soon)
 
